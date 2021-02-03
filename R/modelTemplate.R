@@ -1,3 +1,6 @@
+#' modelTemplate
+#'
+#' @return String with C++ code for the actual model. LATENTEQUATIONPLACEHOLDER has to be replaced with the latent equation and MEASUREMENTEQUATIONPLACEHOLDER with the manifest equation.
 modelTemplate <- function(){
   return('
   // [[Rcpp::depends(RcppArmadillo, psydiff)]]
@@ -83,7 +86,7 @@ arma::mat getMMatrix(const arma::mat &sigmaPoints, const odeintpars &pars,
                      const double &t){
   // Note: This function has to be compiled later on as the users are supposed to
   // provide their own models. The current implementation is a placeholder.
-  // sigmaPoints are called x in Särkkä (2007)
+  // sigmaPoints are called x in Sarkka (2007)
 
   arma::mat M, Qc, invCov;
   arma::mat sigmaPredict(sigmaPoints.n_rows, sigmaPoints.n_cols, arma::fill::zeros);
@@ -241,7 +244,7 @@ Rcpp::List fitModel(Rcpp::List panelSDEModel, double alpha = 0.6, double beta = 
     // if something changed, set parameters
     // Step 1: Set parameters
     // (will pass by reference and change the parameters directly in the parameterList)
-    setParameterTable_C(parameterTable, parameterList, selectedPerson);
+    setParameterList_C(parameterTable, parameterList, selectedPerson);
 
     // extract initial parameters
     m = Rcpp::as<arma::colvec>(parameterList["m0"]);

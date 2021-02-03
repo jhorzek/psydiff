@@ -7,18 +7,6 @@
 
 using namespace Rcpp;
 
-// panelSDE
-Rcpp::List panelSDE(arma::mat observed, Rcpp::DataFrame parameterTable);
-RcppExport SEXP _psydiff_panelSDE(SEXP observedSEXP, SEXP parameterTableSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type observed(observedSEXP);
-    Rcpp::traits::input_parameter< Rcpp::DataFrame >::type parameterTable(parameterTableSEXP);
-    rcpp_result_gen = Rcpp::wrap(panelSDE(observed, parameterTable));
-    return rcpp_result_gen;
-END_RCPP
-}
 // setParameterValues
 void setParameterValues(Rcpp::DataFrame& parameterTable, Rcpp::NumericVector parameterValues, Rcpp::StringVector parameterLabels);
 RcppExport SEXP _psydiff_setParameterValues(SEXP parameterTableSEXP, SEXP parameterValuesSEXP, SEXP parameterLabelsSEXP) {
@@ -42,15 +30,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// setParameterTable
-void setParameterTable(const Rcpp::DataFrame& parameterTable, Rcpp::List& parameterList, int person);
-RcppExport SEXP _psydiff_setParameterTable(SEXP parameterTableSEXP, SEXP parameterListSEXP, SEXP personSEXP) {
+// setParameterList
+void setParameterList(const Rcpp::DataFrame& parameterTable, Rcpp::List& parameterList, int person);
+RcppExport SEXP _psydiff_setParameterList(SEXP parameterTableSEXP, SEXP parameterListSEXP, SEXP personSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const Rcpp::DataFrame& >::type parameterTable(parameterTableSEXP);
     Rcpp::traits::input_parameter< Rcpp::List& >::type parameterList(parameterListSEXP);
     Rcpp::traits::input_parameter< int >::type person(personSEXP);
-    setParameterTable(parameterTable, parameterList, person);
+    setParameterList(parameterTable, parameterList, person);
     return R_NilValue;
 END_RCPP
 }
@@ -79,6 +67,20 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const double& >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< const double& >::type kappa(kappaSEXP);
     rcpp_result_gen = Rcpp::wrap(getMeanWeights(n, alpha, beta, kappa));
+    return rcpp_result_gen;
+END_RCPP
+}
+// getCovWeights
+arma::colvec getCovWeights(const int& n, const double& alpha, const double& beta, const double& kappa);
+RcppExport SEXP _psydiff_getCovWeights(SEXP nSEXP, SEXP alphaSEXP, SEXP betaSEXP, SEXP kappaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const int& >::type n(nSEXP);
+    Rcpp::traits::input_parameter< const double& >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< const double& >::type beta(betaSEXP);
+    Rcpp::traits::input_parameter< const double& >::type kappa(kappaSEXP);
+    rcpp_result_gen = Rcpp::wrap(getCovWeights(n, alpha, beta, kappa));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -233,57 +235,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// rcpparma_hello_world
-arma::mat rcpparma_hello_world();
-RcppExport SEXP _psydiff_rcpparma_hello_world() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(rcpparma_hello_world());
-    return rcpp_result_gen;
-END_RCPP
-}
-// rcpparma_outerproduct
-arma::mat rcpparma_outerproduct(const arma::colvec& x);
-RcppExport SEXP _psydiff_rcpparma_outerproduct(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::colvec& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(rcpparma_outerproduct(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// rcpparma_innerproduct
-double rcpparma_innerproduct(const arma::colvec& x);
-RcppExport SEXP _psydiff_rcpparma_innerproduct(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::colvec& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(rcpparma_innerproduct(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// rcpparma_bothproducts
-Rcpp::List rcpparma_bothproducts(const arma::colvec& x);
-RcppExport SEXP _psydiff_rcpparma_bothproducts(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::colvec& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(rcpparma_bothproducts(x));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_psydiff_panelSDE", (DL_FUNC) &_psydiff_panelSDE, 2},
     {"_psydiff_setParameterValues", (DL_FUNC) &_psydiff_setParameterValues, 3},
     {"_psydiff_getParameterValues", (DL_FUNC) &_psydiff_getParameterValues, 1},
-    {"_psydiff_setParameterTable", (DL_FUNC) &_psydiff_setParameterTable, 3},
+    {"_psydiff_setParameterList", (DL_FUNC) &_psydiff_setParameterList, 3},
     {"_psydiff_getSigmaPoints", (DL_FUNC) &_psydiff_getSigmaPoints, 4},
     {"_psydiff_getMeanWeights", (DL_FUNC) &_psydiff_getMeanWeights, 4},
+    {"_psydiff_getCovWeights", (DL_FUNC) &_psydiff_getCovWeights, 4},
     {"_psydiff_getWMatrix", (DL_FUNC) &_psydiff_getWMatrix, 2},
     {"_psydiff_computeMeanFromSigmaPoints", (DL_FUNC) &_psydiff_computeMeanFromSigmaPoints, 2},
     {"_psydiff_getAFromSigmaPoints", (DL_FUNC) &_psydiff_getAFromSigmaPoints, 3},
@@ -296,10 +255,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_psydiff_updateM", (DL_FUNC) &_psydiff_updateM, 3},
     {"_psydiff_updateP", (DL_FUNC) &_psydiff_updateP, 3},
     {"_psydiff_computeIndividualM2LL", (DL_FUNC) &_psydiff_computeIndividualM2LL, 4},
-    {"_psydiff_rcpparma_hello_world", (DL_FUNC) &_psydiff_rcpparma_hello_world, 0},
-    {"_psydiff_rcpparma_outerproduct", (DL_FUNC) &_psydiff_rcpparma_outerproduct, 1},
-    {"_psydiff_rcpparma_innerproduct", (DL_FUNC) &_psydiff_rcpparma_innerproduct, 1},
-    {"_psydiff_rcpparma_bothproducts", (DL_FUNC) &_psydiff_rcpparma_bothproducts, 1},
     {NULL, NULL, 0}
 };
 

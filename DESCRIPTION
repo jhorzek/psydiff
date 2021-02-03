@@ -1,14 +1,13 @@
 Package: psydiff
 Type: Package
-Title: What the Package Does Using Title Case
-Version: 1.0
+Title: panel stochastic differential equations
+Version: 0.1
 Date: 2021-01-29
-Author: Your Name
-Maintainer: Your Name <your@email.com>
-Description: More details about what the package does. See
-       <http://cran.r-project.org/doc/manuals/r-release/R-exts.html#The-DESCRIPTION-file>
-       for details on how to write this part.
+Author: Jannik Orzek
+Maintainer: Jannik Orzek Name <orzek@mpib-berlin.mpg.de>
+Description: Temporary package for fitting panel stochastic differential equations.
 License: GPL (>= 2)
 Suggests: tinytest
-Imports: Rcpp (>= 1.0.5)
+Imports: Rcpp (>= 1.0.5), stringr
 LinkingTo: Rcpp, RcppArmadillo
+RoxygenNote: 7.1.1

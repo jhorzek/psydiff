@@ -1,3 +1,134 @@
+#' panelsde
+#'
+#' @example
+#' library(psydiff)
+#' library(ctsemOMX)
+#'
+#' ## Example 3: Kalman Filter
+#' set.seed(175446)
+#'
+#' ## define the population model:
+#' n.subjects = 10
+#' # set the drift matrix. Note that drift eta_1_eta2 is set to equal 0 in the population.
+#' ct_drift <- matrix(c(-.3,.2,0,-.5), ncol = 2)
+#'
+#' generatingModel<-ctsem::ctModel(Tpoints=5,n.latent=2,n.TDpred=0,n.TIpred=0,n.manifest=2,
+#'                                 MANIFESTVAR=diag(0.5,2),
+#'                                 LAMBDA=diag(1,2),
+#'                                 DRIFT=ct_drift,
+#'                                 DIFFUSION=matrix(c(.5,0,0,.5),2),
+#'                                 CINT=matrix(0,nrow = 2, ncol = 1),
+#'                                 T0MEANS=matrix(0,ncol=1,nrow=2),
+#'                                 T0VAR=diag(1,2), type = "omx")
+#'
+#' # simulate a training data and testing data set
+#' traindata <- ctsem::ctGenerate(generatingModel,n.subjects = n.subjects, wide = TRUE)
+#' # introduce some missings:
+#' traindata[1:4,2] <- NA
+#' traindata[5,2:5] <- NA
+#' traindata[6,7] <- NA
+#' traindata[19,4] <- NA
+#'
+#' ## Build the analysis model. Note that drift eta1_eta2 is freely estimated
+#' # although it is 0 in the population.
+#' myModel <- ctsem::ctModel(Tpoints=5,n.latent=2,n.TDpred=0,n.TIpred=0,n.manifest=2,
+#'                           LAMBDA=diag(1,2),
+#'                           MANIFESTVAR=diag(.5,2), MANIFESTMEANS = "auto",
+#'                           CINT=0,
+#'                           DIFFUSION=matrix(c('eta1_eta1',0,0,'eta2_eta2'),2),
+#'                           T0MEANS=matrix(c(1,2),ncol=1,nrow=2),
+#' T0VAR="auto", type = "omx")
+#'
+#' myModel <- ctFit(myModel, dat = traindata, objective = "Kalman", useOptimizer = T,
+#'                  stationary = c('T0TRAITEFFECT','T0TIPREDEFFECT'))
+#' myModel$mxobj$fitfunction$result[[1]]
+#'
+#'
+#' ## with panelsde
+#' # prepare data
+#' longdata <- ctWideToLong(traindata, n.manifest = 2, Tpoints =  5)
+#' dat <- list("person" = longdata[,"id"], "observations" = longdata[,c("Y1", "Y2")], "dt" = longdata[,"dT"])
+#'
+#' ## prepare model
+#'
+#' latentEquations <- "
+#' dx = DRIFT*x;
+#' "
+#'
+#' manifestEquations <- "
+#' y = MANIFESTMEANS + LAMBDA*x;
+#' "
+#'
+#' LAMBDA <- fromMxMatrix(myModel$mxobj$LAMBDA)
+#' DRIFT <- fromMxMatrix(myModel$mxobj$DRIFT)
+#' MANIFESTMEANS <- fromMxMatrix(myModel$mxobj$MANIFESTMEANS)
+#'
+#' parameters <- list("LAMBDA" = LAMBDA, "DRIFT" = DRIFT,
+#'                    "MANIFESTMEANS" = MANIFESTMEANS)
+#'
+#' m0  <- fromMxMatrix(myModel$mxobj$T0MEANS)
+#' A0 <- sdeModelMatrix(values = t(chol(myModel$mxobj$T0VAR$result)),
+#'                      labels = matrix(c("T0var_eta1", "",
+#'                                        "T0var_eta2_eta1", "T0var_eta2"),2,2,T))
+#' Rchol = sdeModelMatrix(values = t(chol(myModel$mxobj$MANIFESTVAR$result)),
+#'                        labels = matrix(c("", "",
+#'                                          "", ""),2,2,T))
+#' L = sdeModelMatrix(values = t(chol(myModel$mxobj$DIFFUSION$result)),
+#'                    labels = matrix(c("eta1_eta1", "",
+#'                                      "", "eta2_eta2"),2,2,T))
+#'
+#' # set up model
+#' model <- panelsde(dataset = dat, latentEquations = latentEquations,
+#'                   manifestEquations = manifestEquations,
+#'                   L = L, Rchol = Rchol, A0 = A0, m0 = m0,
+#'                   parameters = parameters, compile = TRUE)
+#'
+#' # fit model
+#' out <- fitModel(panelSDEModel = model)
+#' sum(out$m2LL)
+#'
+#' # change parameter values
+#' parval <- psydiff::getParameterValues(model)+1
+#' psydiff::setParameterValues(parameterTable = model$pars$parameterTable,
+#'                             parameterValues = parval, parameterLabels = names(parval))
+#'
+#' # fit model
+#' out <- fitModel(panelSDEModel = model)
+#' sum(out$m2LL)
+#'
+#' ## optimize model with optim
+#' fitfun <- function(parval, model){
+#'   psydiff::setParameterValues(parameterTable = model$pars$parameterTable,
+#'                               parameterValues = parval, parameterLabels = names(parval))
+#'   out <- try(fitModel(panelSDEModel = model))
+#'   if(any(class(out) == "try-error")){
+#'     return(NA)
+#'   }
+#'   return(sum(out$m2LL))
+#' }
+#'
+#' optimized <- optim(par = parval, fn = fitfun, gr = NULL, model, method = "BFGS")
+#' optimized$value
+#'
+#' ## additional grouping
+#' # we will make the initial mean mm_Y1 person specific and mm_Y2 depend on a grouping parameter
+#' grouping <- "
+#' mm_Y1 | person;
+#' mm_Y2 | group1;
+#' "
+#' groupinglist <- list("group1" = c(rep(1,5), rep(2,5)))
+#'
+#' # set up model
+#' model <- panelsde(dataset = dat, latentEquations = latentEquations,
+#'                   manifestEquations = manifestEquations, grouping = grouping,
+#'                   L = L, Rchol = Rchol, A0 = A0, m0 = m0,
+#'                   parameters = parameters, groupingvariables = groupinglist, compile = TRUE)
+#' parval <- psydiff::getParameterValues(model)
+#'
+#' optimized <- optim(par = parval, fn = fitfun, gr = NULL, model, method = "BFGS")
+#' optimized$par
+#' optimized$value
+
 panelsde <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0, m0,
                      grouping = NULL, parameters, groupingvariables = NULL,
                      additional = NULL, compile = TRUE){
@@ -51,7 +182,8 @@ panelsde <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0, 
   parameterTable$person <- rep(unique(persons), each = nrow(parameterTableInit))
 
   ## check groupings
-  parameterTable <- makeGroups(grouping = grouping, parameterTable = parameterTable)
+  parameterTable <- makeGroups(grouping = grouping, groupingvariables = groupingvariables,
+                               parameterTable = parameterTable)
 
   ## prepare equations
   manifestEquationsStart <- "
@@ -204,8 +336,9 @@ extractParameters <- function(elementNames, parameters){
 
 }
 
-makeGroups <- function(grouping, parameterTable){
+makeGroups <- function(grouping, groupingvariables, parameterTable){
   if(!is.null(grouping)){
+    persons <- parameterTable$person
     checkEquation(grouping)
     ## split groupings
     grouping <- stringr::str_remove_all(grouping, "\n")

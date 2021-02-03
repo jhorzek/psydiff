@@ -1,12 +1,6 @@
 #ifndef PANELSDEBASIC_H
 #define PANELSDEBASIC_H
 
-inline Rcpp::List panelSDE_C(arma::mat observed, Rcpp::DataFrame parameterTable){
-  Rcpp::List panelSDEModel = Rcpp::List::create(Rcpp::_["observed"] = observed ,
-                                                Rcpp::_["parameterTable"] = parameterTable);
-  return(panelSDEModel);
-}
-
 inline void setParameterValues_C(Rcpp::DataFrame &parameterTable,
                                  Rcpp::NumericVector parameterValues,
                                  Rcpp::StringVector parameterLabels){
@@ -66,7 +60,7 @@ inline Rcpp::NumericVector getParameterValues_C(const Rcpp::List panelSDEModel) 
 // setParameterValues only defines the values in parameterTable
 // when fitting the model, the drift, etc. have to be filled the
 // the individual parameter values
-inline void setParameterTable_C(const Rcpp::DataFrame &parameterTable, Rcpp::List &parameterList,
+inline void setParameterList_C(const Rcpp::DataFrame &parameterTable, Rcpp::List &parameterList,
                                 int person){
   // extract relevant elements from model
   Rcpp::NumericVector persons = parameterTable["person"];
