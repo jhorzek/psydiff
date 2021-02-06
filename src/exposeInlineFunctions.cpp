@@ -224,3 +224,23 @@ double computeIndividualM2LL(const int &nObservedVariables,
                                  expectedCovariance));
 }
 
+//' Computes the cholupdate for the square root unscented update (see Van der Merwe & Wan, 2001)
+//'
+//' @param L cholesky matrix which will be updated
+//' @param x colvec which will be used for the update
+//' @param v double: additional factor for cholupdate, see Van der Merwe & Wan, 2001
+//' @param direction string: either downdate or update
+//' @return matrix: downdated / updated matrix
+// [[Rcpp::export]]
+arma::mat cholupdate(arma::mat L, arma::colvec x, double v, std::string direction){
+  return(cholupdate_C(L, x, v, direction));
+}
+
+//' qr for the square root unscented update (see van der Merwe & Wan, 2001). Returns R-tilde
+//'
+//' @param X matrix which will be decomposed
+//' @return matrix: R-tilde
+// [[Rcpp::export]]
+arma::mat qr(arma::mat X){
+  return(qr_C(X));
+}

@@ -179,3 +179,22 @@ computeIndividualM2LL <- function(nObservedVariables, rawData, expectedMeans, ex
     .Call(`_psydiff_computeIndividualM2LL`, nObservedVariables, rawData, expectedMeans, expectedCovariance)
 }
 
+#' Computes the cholupdate for the square root unscented update (see Van der Merwe & Wan, 2001)
+#'
+#' @param L cholesky matrix which will be updated
+#' @param x colvec which will be used for the update
+#' @param v double: additional factor for cholupdate, see Van der Merwe & Wan, 2001
+#' @param direction string: either downdate or update
+#' @return matrix: downdated / updated matrix
+cholupdate <- function(L, x, v, direction) {
+    .Call(`_psydiff_cholupdate`, L, x, v, direction)
+}
+
+#' qr for the square root unscented update (see van der Merwe & Wan, 2001). Returns R-tilde
+#'
+#' @param X matrix which will be decomposed
+#' @return matrix: R-tilde
+qr <- function(X) {
+    .Call(`_psydiff_qr`, X)
+}
+

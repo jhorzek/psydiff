@@ -1,6 +1,23 @@
 #' panelsde
 #'
-#' @example
+#' @param dataset list with fields person, observations, and dt
+#' @param latentEquations string with latent equations
+#' @param manifestEquations string with manifest equations
+#' @param L lower triangular Cholesky decomposition of the diffusion matrix
+#' @param Rchol lower triangular Cholesky decomposition of the manifest variance
+#' @param A0 lower triangular Cholesky decomposition of the initial latent variance
+#' @param m0 vector of initial latent means
+#' @param grouping string specifying the groupings
+#' @param parameters list with named parameters
+#' @param groupingvariables list with variables used for grouping
+#' @param additional list for anything additional that should be passed to the latent or manifest equation
+#' @param srUpdate boolean: Should the square root version be used for the updates?
+#' @param compile boolean: should the model be compiled
+#'
+#' @return panelSDEModel that can be fitted with fitModel()
+#' @return cppCode if compile = FALSE, the C++ code for the model will be returned
+#'
+#' @examples
 #' library(psydiff)
 #' library(ctsemOMX)
 #'
@@ -131,15 +148,15 @@
 
 panelsde <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0, m0,
                      grouping = NULL, parameters, groupingvariables = NULL,
-                     additional = NULL, compile = TRUE){
+                     additional = NULL, srUpdate = TRUE, compile = TRUE){
   nlatent <- ncol(L)
   nmanifest <- ncol(Rchol)
 
   # checks
   checkEquation(latentEquations)
   checkEquation(manifestEquations)
-  if(!is.list(dataset)){
-    stop("dataset must be of class list")
+  if((!is.list(dataset)) | is.data.frame(dataset)){
+    stop("dataset must be a list")
   }
   datasetNames <- names(dataset)
   for(datasetName in datasetNames){
@@ -215,7 +232,9 @@ panelsde <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0, 
   latentEquationsCpp <- paste0(latentEquationsStart, latentEquationsMiddle, latentEquationsEnd)
 
   ## set up model
-  modelCpp <- modelTemplate()
+
+  modelCpp <- modelTemplate(srUpdate)
+
   modelCpp <- stringr::str_replace_all(modelCpp, "MEASUREMENTEQUATIONPLACEHOLDER", manifestEquationsCpp)
   modelCpp <- stringr::str_replace_all(modelCpp, "LATENTEQUATIONPLACEHOLDER", latentEquationsCpp)
 
@@ -227,7 +246,7 @@ panelsde <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0, 
     close(fileConn)
     cat("Compiling model...")
     Rcpp::sourceCpp(file = filename)
-    cat("Done.\n The model can be fitted with the fitModel()-function and the returned object.")
+    cat("Done.\n The model can be fitted with the fitModel()-function and the returned object.\n")
   }
 
   ## return model
@@ -384,12 +403,14 @@ prepareEquations <- function(equations, parameters){
       if(is.matrix(targetClass)){
         equationsCombined <- paste0(equationsCombined, '
                arma::mat ', elementInEquation, ' = modelPars["',elementInEquation,'"]; \n')
-      }else if(is.vec(targetClass)){
-        equationsCombined <- paste0(equationsCombined, '
-               arma::colvec ', elementInEquation, ' = modelPars["',elementInEquation,'"]; \n')
-      }else if(is.numeric(targetClass)){
-        equationsCombined <- paste0(equationsCombined, '
+      }else if(is.vector(targetClass)){
+        if(length(targetClass) == 1){
+          equationsCombined <- paste0(equationsCombined, '
                double ', elementInEquation, ' = modelPars["',elementInEquation,'"]; \n')
+        }else{
+          equationsCombined <- paste0(equationsCombined, '
+               arma::colvec ', elementInEquation, ' = modelPars["',elementInEquation,'"]; \n')
+        }
       }else{
         stop("Error in prepareEquations: targetClass unknown.")
       }

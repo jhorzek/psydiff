@@ -235,6 +235,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cholupdate
+arma::mat cholupdate(arma::mat L, arma::colvec x, double v, std::string direction);
+RcppExport SEXP _psydiff_cholupdate(SEXP LSEXP, SEXP xSEXP, SEXP vSEXP, SEXP directionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type L(LSEXP);
+    Rcpp::traits::input_parameter< arma::colvec >::type x(xSEXP);
+    Rcpp::traits::input_parameter< double >::type v(vSEXP);
+    Rcpp::traits::input_parameter< std::string >::type direction(directionSEXP);
+    rcpp_result_gen = Rcpp::wrap(cholupdate(L, x, v, direction));
+    return rcpp_result_gen;
+END_RCPP
+}
+// qr
+arma::mat qr(arma::mat X);
+RcppExport SEXP _psydiff_qr(SEXP XSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    rcpp_result_gen = Rcpp::wrap(qr(X));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_psydiff_setParameterValues", (DL_FUNC) &_psydiff_setParameterValues, 3},
@@ -255,6 +280,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_psydiff_updateM", (DL_FUNC) &_psydiff_updateM, 3},
     {"_psydiff_updateP", (DL_FUNC) &_psydiff_updateP, 3},
     {"_psydiff_computeIndividualM2LL", (DL_FUNC) &_psydiff_computeIndividualM2LL, 4},
+    {"_psydiff_cholupdate", (DL_FUNC) &_psydiff_cholupdate, 4},
+    {"_psydiff_qr", (DL_FUNC) &_psydiff_qr, 1},
     {NULL, NULL, 0}
 };
 
