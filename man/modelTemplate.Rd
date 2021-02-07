@@ -4,7 +4,10 @@
 \alias{modelTemplate}
 \title{modelTemplate}
 \usage{
-modelTemplate()
+modelTemplate(srUpdate = TRUE)
+}
+\arguments{
+\item{srUpdate}{boolean: Should the square root version be used for the updates?}
 }
 \value{
 String with C++ code for the actual model. LATENTEQUATIONPLACEHOLDER has to be replaced with the latent equation and MEASUREMENTEQUATIONPLACEHOLDER with the manifest equation.

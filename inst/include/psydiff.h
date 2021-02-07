@@ -2,8 +2,8 @@
 #define PSYDIFF_H
 
 #include <RcppArmadillo.h>
-#include <panelsdeBasic.h>
-#include <panelsdeInternals.h>
+#include <psydiffBasic.h>
+#include <psydiffInternals.h>
 #include "boost/numeric/odeint.hpp"
 
 #endif

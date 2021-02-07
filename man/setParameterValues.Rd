@@ -14,7 +14,7 @@ setParameterValues(parameterTable, parameterValues, parameterLabels)
 \item{parameterLabels}{labels of the parameters (must correspond to the label column of parameterTable)}
 }
 \value{
-the parameterTable is changed by reference; nothing is returned explicitly
+the parameterTable is changed and returned
 }
 \description{
 Change the parameter values in the parameterTable

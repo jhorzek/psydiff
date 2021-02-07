@@ -1,5 +1,5 @@
-#ifndef PANELSDEINTERNALS_H
-#define PANELSDEINTERNALS_H
+#ifndef PSYDIFFINTERNALS_H
+#define PSYDIFFINTERNALS_H
 
 inline arma::mat getSigmaPoints_C(arma::colvec m, arma::mat &A, const bool &covarianceIsRoot,
                                   const double &c){

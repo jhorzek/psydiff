@@ -6,23 +6,24 @@
 //' @param parameterTable parameterTable
 //' @param parameterValues values to which the parameters in parameterTable will be changed
 //' @param parameterLabels labels of the parameters (must correspond to the label column of parameterTable)
-//' @return the parameterTable is changed by reference; nothing is returned explicitly
+//' @return the parameterTable is changed and returned
 // [[Rcpp::export]]
-void setParameterValues(Rcpp::DataFrame &parameterTable,
+Rcpp::DataFrame setParameterValues(Rcpp::DataFrame parameterTable,
                         Rcpp::NumericVector parameterValues,
                         Rcpp::StringVector parameterLabels){
   setParameterValues_C(parameterTable,
                        parameterValues,
                        parameterLabels);
+  return(parameterTable);
 }
 
-//' Get the parameter values of a panelSDEModel
+//' Get the parameter values of a psydiffModel
 //'
-//' @param panelSDEModel panelSDEModel
+//' @param psydiffModel psydiffModel
 //' @return named vector with parameter values
 // [[Rcpp::export]]
-Rcpp::NumericVector getParameterValues(Rcpp::List panelSDEModel){
-  return getParameterValues_C(panelSDEModel);
+Rcpp::NumericVector getParameterValues(Rcpp::List psydiffModel){
+  return getParameterValues_C(psydiffModel);
 }
 
 //' The parameterList holds all parameters for a single person.
@@ -241,6 +242,6 @@ arma::mat cholupdate(arma::mat L, arma::colvec x, double v, std::string directio
 //' @param X matrix which will be decomposed
 //' @return matrix: R-tilde
 // [[Rcpp::export]]
-arma::mat qr(arma::mat X){
+arma::mat qr_(arma::mat X){
   return(qr_C(X));
 }

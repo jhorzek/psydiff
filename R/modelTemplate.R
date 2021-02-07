@@ -163,20 +163,20 @@ class odeintModel{
 };
 
 // [[Rcpp::export]]
-Rcpp::List fitModel(Rcpp::List panelSDEModel, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
+Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
                     double timeStep = 0.01, std::string integrateFunction = "default", int verbose = 0){
 
   // extract parameters from model
-  Rcpp::List pars = panelSDEModel["pars"];
+  Rcpp::List pars = psydiffModel["pars"];
   Rcpp::List parameterList = pars["parameterList"]; // has all starting values
   Rcpp::DataFrame parameterTable = Rcpp::as<Rcpp::DataFrame>(pars["parameterTable"]);
   Rcpp::NumericVector personInParameterTable = parameterTable["person"]; // persons
-  Rcpp::List additional = panelSDEModel["additional"];
+  Rcpp::List additional = psydiffModel["additional"];
 
   odeintpars odeintparam;
   odeintparam.parameterList = parameterList;
-  odeintparam.nlatent = panelSDEModel["nlatent"];
-  odeintparam.nmanifest = panelSDEModel["nmanifest"];
+  odeintparam.nlatent = psydiffModel["nlatent"];
+  odeintparam.nmanifest = psydiffModel["nmanifest"];
   odeintparam.alpha = alpha;
   odeintparam.beta = beta;
   odeintparam.kappa = kappa;
@@ -189,7 +189,7 @@ Rcpp::List fitModel(Rcpp::List panelSDEModel, double alpha = 0.6, double beta = 
   odeintparam.c = c;
 
   // data
-  Rcpp::List data = panelSDEModel["data"];
+  Rcpp::List data = psydiffModel["data"];
   Rcpp::NumericVector personsInData = data["person"]; // persons
   Rcpp::NumericVector uniquePersons = unique(personsInData);
   int sampleSize = uniquePersons.length();
@@ -380,7 +380,44 @@ Rcpp::List fitModel(Rcpp::List panelSDEModel, double alpha = 0.6, double beta = 
                                        Rcpp::Named("m") = m,
                                        Rcpp::Named("A") = A);
   return(ret);
-}'
+}
+
+// [[Rcpp::export]]
+Rcpp::NumericVector getGradients(Rcpp::List psydiffModel, double eps, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
+                                 double timeStep = 0.01, std::string integrateFunction = "default", int verbose = 0){
+  Rcpp::List psydiffModelClone = Rcpp::clone(psydiffModel);
+  Rcpp::List pars = psydiffModelClone["pars"];
+  Rcpp::DataFrame parameterTable = Rcpp::as<Rcpp::DataFrame>(pars["parameterTable"]);
+  Rcpp::NumericVector currentParameterValues = getParameterValues_C(psydiffModelClone);
+  Rcpp::NumericMatrix m2LLs(currentParameterValues.length() , 2);
+  Rcpp::NumericVector gradients(currentParameterValues.length());
+  arma::colvec m2LL;
+  Rcpp::List fittedModel;
+
+  for(int par = 0; par < currentParameterValues.length(); par++){
+
+    currentParameterValues(par) += eps;
+    setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, verbose);
+    m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
+    m2LLs(par,0) = sum(m2LL);
+
+    currentParameterValues(par) -= 2*eps;
+    setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, verbose);
+    m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
+    m2LLs(par,1) = sum(m2LL);
+
+    currentParameterValues(par) += eps;
+
+  }
+
+  gradients = (m2LLs(Rcpp::_,0) - m2LLs(Rcpp::_,1))/(2*eps);
+  gradients.names() = currentParameterValues.names();
+  return(gradients);
+}
+
+'
   }else{
     mod <- '
   // [[Rcpp::depends(RcppArmadillo, psydiff)]]
@@ -542,20 +579,20 @@ public:
 };
 
 // [[Rcpp::export]]
-Rcpp::List fitModel(Rcpp::List panelSDEModel, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
+Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
                     double timeStep = 0.01, std::string integrateFunction = "default", int verbose = 0){
 
   // extract parameters from model
-  Rcpp::List pars = panelSDEModel["pars"];
+  Rcpp::List pars = psydiffModel["pars"];
   Rcpp::List parameterList = pars["parameterList"]; // has all starting values
   Rcpp::DataFrame parameterTable = Rcpp::as<Rcpp::DataFrame>(pars["parameterTable"]);
   Rcpp::NumericVector personInParameterTable = parameterTable["person"]; // persons
-  Rcpp::List additional = panelSDEModel["additional"];
+  Rcpp::List additional = psydiffModel["additional"];
 
   odeintpars odeintparam;
   odeintparam.parameterList = parameterList;
-  odeintparam.nlatent = panelSDEModel["nlatent"];
-  odeintparam.nmanifest = panelSDEModel["nmanifest"];
+  odeintparam.nlatent = psydiffModel["nlatent"];
+  odeintparam.nmanifest = psydiffModel["nmanifest"];
   odeintparam.alpha = alpha;
   odeintparam.beta = beta;
   odeintparam.kappa = kappa;
@@ -568,7 +605,7 @@ Rcpp::List fitModel(Rcpp::List panelSDEModel, double alpha = 0.6, double beta = 
   odeintparam.c = c;
 
   // data
-  Rcpp::List data = panelSDEModel["data"];
+  Rcpp::List data = psydiffModel["data"];
   Rcpp::NumericVector personsInData = data["person"]; // persons
   Rcpp::NumericVector uniquePersons = unique(personsInData);
   int sampleSize = uniquePersons.length();
@@ -769,8 +806,42 @@ Rcpp::List fitModel(Rcpp::List panelSDEModel, double alpha = 0.6, double beta = 
   return(ret);
 }
 
-  '
+// [[Rcpp::export]]
+Rcpp::NumericVector getGradients(Rcpp::List psydiffModel, double eps, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
+                                 double timeStep = 0.01, std::string integrateFunction = "default", int verbose = 0){
+  Rcpp::List psydiffModelClone = Rcpp::clone(psydiffModel);
+  Rcpp::List pars = psydiffModelClone["pars"];
+  Rcpp::DataFrame parameterTable = Rcpp::as<Rcpp::DataFrame>(pars["parameterTable"]);
+  Rcpp::NumericVector currentParameterValues = getParameterValues_C(psydiffModelClone);
+  Rcpp::NumericMatrix m2LLs(currentParameterValues.length() , 2);
+  Rcpp::NumericVector gradients(currentParameterValues.length());
+  arma::colvec m2LL;
+  Rcpp::List fittedModel;
+
+  for(int par = 0; par < currentParameterValues.length(); par++){
+
+    currentParameterValues(par) += eps;
+    setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, verbose);
+    m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
+    m2LLs(par,0) = sum(m2LL);
+
+    currentParameterValues(par) -= 2*eps;
+    setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, verbose);
+    m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
+    m2LLs(par,1) = sum(m2LL);
+
+    currentParameterValues(par) += eps;
+
   }
 
-  return(mod)
+  gradients = (m2LLs(Rcpp::_,0) - m2LLs(Rcpp::_,1))/(2*eps);
+  gradients.names() = currentParameterValues.names();
+  return(gradients);
+}
+'
+  }
+
+return(mod)
 }

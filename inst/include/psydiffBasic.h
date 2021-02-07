@@ -1,5 +1,5 @@
-#ifndef PANELSDEBASIC_H
-#define PANELSDEBASIC_H
+#ifndef PSYDIFFBASIC_H
+#define PSYDIFFBASIC_H
 
 inline void setParameterValues_C(Rcpp::DataFrame &parameterTable,
                                  Rcpp::NumericVector parameterValues,
@@ -33,9 +33,9 @@ inline void setParameterValues_C(Rcpp::DataFrame &parameterTable,
 }
 
 // returns the parameter values of the model
-inline Rcpp::NumericVector getParameterValues_C(const Rcpp::List panelSDEModel) {
+inline Rcpp::NumericVector getParameterValues_C(const Rcpp::List psydiffModel) {
   // extract relevant elements from model
-  Rcpp::List pars = panelSDEModel["pars"];
+  Rcpp::List pars = psydiffModel["pars"];
   Rcpp::DataFrame parameterTable = Rcpp::as<Rcpp::DataFrame>(pars["parameterTable"]);
 
   Rcpp::StringVector parameterLabels = parameterTable["label"];

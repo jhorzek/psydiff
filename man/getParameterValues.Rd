@@ -2,16 +2,16 @@
 % Please edit documentation in R/RcppExports.R
 \name{getParameterValues}
 \alias{getParameterValues}
-\title{Get the parameter values of a panelSDEModel}
+\title{Get the parameter values of a psydiffModel}
 \usage{
-getParameterValues(panelSDEModel)
+getParameterValues(psydiffModel)
 }
 \arguments{
-\item{panelSDEModel}{panelSDEModel}
+\item{psydiffModel}{psydiffModel}
 }
 \value{
 named vector with parameter values
 }
 \description{
-Get the parameter values of a panelSDEModel
+Get the parameter values of a psydiffModel
 }

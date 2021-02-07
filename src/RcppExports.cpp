@@ -8,25 +8,26 @@
 using namespace Rcpp;
 
 // setParameterValues
-void setParameterValues(Rcpp::DataFrame& parameterTable, Rcpp::NumericVector parameterValues, Rcpp::StringVector parameterLabels);
+Rcpp::DataFrame setParameterValues(Rcpp::DataFrame parameterTable, Rcpp::NumericVector parameterValues, Rcpp::StringVector parameterLabels);
 RcppExport SEXP _psydiff_setParameterValues(SEXP parameterTableSEXP, SEXP parameterValuesSEXP, SEXP parameterLabelsSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::DataFrame& >::type parameterTable(parameterTableSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type parameterValues(parameterValuesSEXP);
-    Rcpp::traits::input_parameter< Rcpp::StringVector >::type parameterLabels(parameterLabelsSEXP);
-    setParameterValues(parameterTable, parameterValues, parameterLabels);
-    return R_NilValue;
-END_RCPP
-}
-// getParameterValues
-Rcpp::NumericVector getParameterValues(Rcpp::List panelSDEModel);
-RcppExport SEXP _psydiff_getParameterValues(SEXP panelSDEModelSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::List >::type panelSDEModel(panelSDEModelSEXP);
-    rcpp_result_gen = Rcpp::wrap(getParameterValues(panelSDEModel));
+    Rcpp::traits::input_parameter< Rcpp::DataFrame >::type parameterTable(parameterTableSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type parameterValues(parameterValuesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::StringVector >::type parameterLabels(parameterLabelsSEXP);
+    rcpp_result_gen = Rcpp::wrap(setParameterValues(parameterTable, parameterValues, parameterLabels));
+    return rcpp_result_gen;
+END_RCPP
+}
+// getParameterValues
+Rcpp::NumericVector getParameterValues(Rcpp::List psydiffModel);
+RcppExport SEXP _psydiff_getParameterValues(SEXP psydiffModelSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type psydiffModel(psydiffModelSEXP);
+    rcpp_result_gen = Rcpp::wrap(getParameterValues(psydiffModel));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -249,14 +250,14 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// qr
-arma::mat qr(arma::mat X);
-RcppExport SEXP _psydiff_qr(SEXP XSEXP) {
+// qr_
+arma::mat qr_(arma::mat X);
+RcppExport SEXP _psydiff_qr_(SEXP XSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
-    rcpp_result_gen = Rcpp::wrap(qr(X));
+    rcpp_result_gen = Rcpp::wrap(qr_(X));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -281,7 +282,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_psydiff_updateP", (DL_FUNC) &_psydiff_updateP, 3},
     {"_psydiff_computeIndividualM2LL", (DL_FUNC) &_psydiff_computeIndividualM2LL, 4},
     {"_psydiff_cholupdate", (DL_FUNC) &_psydiff_cholupdate, 4},
-    {"_psydiff_qr", (DL_FUNC) &_psydiff_qr, 1},
+    {"_psydiff_qr_", (DL_FUNC) &_psydiff_qr_, 1},
     {NULL, NULL, 0}
 };
 

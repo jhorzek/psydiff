@@ -1,4 +1,4 @@
-#' panelsde
+#' newPsydiff
 #'
 #' @param dataset list with fields person, observations, and dt
 #' @param latentEquations string with latent equations
@@ -14,7 +14,7 @@
 #' @param srUpdate boolean: Should the square root version be used for the updates?
 #' @param compile boolean: should the model be compiled
 #'
-#' @return panelSDEModel that can be fitted with fitModel()
+#' @return psydiffModel that can be fitted with fitModel()
 #' @return cppCode if compile = FALSE, the C++ code for the model will be returned
 #'
 #' @examples
@@ -61,7 +61,7 @@
 #' myModel$mxobj$fitfunction$result[[1]]
 #'
 #'
-#' ## with panelsde
+#' ## with psydiff
 #' # prepare data
 #' longdata <- ctWideToLong(traindata, n.manifest = 2, Tpoints =  5)
 #' dat <- list("person" = longdata[,"id"], "observations" = longdata[,c("Y1", "Y2")], "dt" = longdata[,"dT"])
@@ -95,13 +95,13 @@
 #'                                      "", "eta2_eta2"),2,2,T))
 #'
 #' # set up model
-#' model <- panelsde(dataset = dat, latentEquations = latentEquations,
+#' model <- newPsydiff(dataset = dat, latentEquations = latentEquations,
 #'                   manifestEquations = manifestEquations,
 #'                   L = L, Rchol = Rchol, A0 = A0, m0 = m0,
 #'                   parameters = parameters, compile = TRUE)
 #'
 #' # fit model
-#' out <- fitModel(panelSDEModel = model)
+#' out <- fitModel(psydiffModel = model)
 #' sum(out$m2LL)
 #'
 #' # change parameter values
@@ -110,14 +110,14 @@
 #'                             parameterValues = parval, parameterLabels = names(parval))
 #'
 #' # fit model
-#' out <- fitModel(panelSDEModel = model)
+#' out <- fitModel(psydiffModel = model)
 #' sum(out$m2LL)
 #'
 #' ## optimize model with optim
 #' fitfun <- function(parval, model){
 #'   psydiff::setParameterValues(parameterTable = model$pars$parameterTable,
 #'                               parameterValues = parval, parameterLabels = names(parval))
-#'   out <- try(fitModel(panelSDEModel = model))
+#'   out <- try(fitModel(psydiffModel = model))
 #'   if(any(class(out) == "try-error")){
 #'     return(NA)
 #'   }
@@ -136,7 +136,7 @@
 #' groupinglist <- list("group1" = c(rep(1,5), rep(2,5)))
 #'
 #' # set up model
-#' model <- panelsde(dataset = dat, latentEquations = latentEquations,
+#' model <- newPsydiff(dataset = dat, latentEquations = latentEquations,
 #'                   manifestEquations = manifestEquations, grouping = grouping,
 #'                   L = L, Rchol = Rchol, A0 = A0, m0 = m0,
 #'                   parameters = parameters, groupingvariables = groupinglist, compile = TRUE)
@@ -146,9 +146,9 @@
 #' optimized$par
 #' optimized$value
 
-panelsde <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0, m0,
-                     grouping = NULL, parameters, groupingvariables = NULL,
-                     additional = NULL, srUpdate = TRUE, compile = TRUE){
+newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0, m0,
+                       grouping = NULL, parameters, groupingvariables = NULL,
+                       additional = NULL, srUpdate = TRUE, compile = TRUE){
   nlatent <- ncol(L)
   nmanifest <- ncol(Rchol)
 
@@ -240,31 +240,32 @@ panelsde <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0, 
 
   ## compile
   if(compile){
-    filename <- tempfile(pattern = "panelsde_", tmpdir = tempdir(), fileext = ".cpp")
+    filename <- tempfile(pattern = "psydiff_", tmpdir = tempdir(), fileext = ".cpp")
     fileConn<-file(filename)
     writeLines(modelCpp, fileConn)
     close(fileConn)
     cat("Compiling model...")
     Rcpp::sourceCpp(file = filename)
-    cat("Done.\n The model can be fitted with the fitModel()-function and the returned object.\n")
+    cat("Done.\n")
+    message("The model can be fitted with the fitModel()-function and the returned object. Use getGradients() to compute the central gradients of the model.")
   }
 
   ## return model
   pars <- list("parameterList" = parameterList,
                "parameterTable" = parameterTable
   )
-  panelSDEModel <- list("pars" = pars,
-                        "nlatent" = nlatent,
-                        "nmanifest" = nmanifest,
-                        "data" = dataset,
-                        "additional"= additional
+  psydiffModel <- list("pars" = pars,
+                       "nlatent" = nlatent,
+                       "nmanifest" = nmanifest,
+                       "data" = dataset,
+                       "additional"= additional
   )
 
   if(compile){
-    return(panelSDEModel)
+    return(psydiffModel)
   }
 
-  return(list("panelSDEModel" = panelSDEModel, "cppCode" = modelCpp))
+  return(list("psydiffModel" = psydiffModel, "cppCode" = modelCpp))
 
 }
 

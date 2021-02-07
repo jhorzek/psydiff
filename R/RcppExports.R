@@ -6,17 +6,17 @@
 #' @param parameterTable parameterTable
 #' @param parameterValues values to which the parameters in parameterTable will be changed
 #' @param parameterLabels labels of the parameters (must correspond to the label column of parameterTable)
-#' @return the parameterTable is changed by reference; nothing is returned explicitly
+#' @return the parameterTable is changed and returned
 setParameterValues <- function(parameterTable, parameterValues, parameterLabels) {
-    invisible(.Call(`_psydiff_setParameterValues`, parameterTable, parameterValues, parameterLabels))
+    .Call(`_psydiff_setParameterValues`, parameterTable, parameterValues, parameterLabels)
 }
 
-#' Get the parameter values of a panelSDEModel
+#' Get the parameter values of a psydiffModel
 #'
-#' @param panelSDEModel panelSDEModel
+#' @param psydiffModel psydiffModel
 #' @return named vector with parameter values
-getParameterValues <- function(panelSDEModel) {
-    .Call(`_psydiff_getParameterValues`, panelSDEModel)
+getParameterValues <- function(psydiffModel) {
+    .Call(`_psydiff_getParameterValues`, psydiffModel)
 }
 
 #' The parameterList holds all parameters for a single person.
@@ -194,7 +194,7 @@ cholupdate <- function(L, x, v, direction) {
 #'
 #' @param X matrix which will be decomposed
 #' @return matrix: R-tilde
-qr <- function(X) {
-    .Call(`_psydiff_qr`, X)
+qr_ <- function(X) {
+    .Call(`_psydiff_qr_`, X)
 }
 
