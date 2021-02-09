@@ -62,7 +62,7 @@ MEASUREMENTEQUATIONPLACEHOLDER
 arma::mat getY_(const arma::mat sigmaPoints, const odeintpars &pars,
                 const int &person,
                 const double &t){
-  arma::mat Y_(pars.nlatent, sigmaPoints.n_cols, arma::fill::zeros);
+  arma::mat Y_(pars.nmanifest, sigmaPoints.n_cols, arma::fill::zeros);
   arma::colvec currentSigma;
   for(int co = 0; co < sigmaPoints.n_cols; co++){
     currentSigma = sigmaPoints.col(co);
@@ -478,7 +478,7 @@ MEASUREMENTEQUATIONPLACEHOLDER
 arma::mat getY_(const arma::mat sigmaPoints, const odeintpars &pars,
                 const int &person,
                 const double &t){
-  arma::mat Y_(pars.nlatent, sigmaPoints.n_cols, arma::fill::zeros);
+  arma::mat Y_(pars.nmanifest, sigmaPoints.n_cols, arma::fill::zeros);
   arma::colvec currentSigma;
   for(int co = 0; co < sigmaPoints.n_cols; co++){
     currentSigma = sigmaPoints.col(co);
