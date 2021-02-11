@@ -164,7 +164,7 @@ class odeintModel{
 
 // [[Rcpp::export]]
 Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
-                    double timeStep = 0.01, std::string integrateFunction = "default", int verbose = 0){
+                    double timeStep = 0.01, std::string integrateFunction = "default", bool breakEarly = true, int verbose = 0){
 
   // extract parameters from model
   Rcpp::List pars = psydiffModel["pars"];
@@ -300,17 +300,22 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
       endTime = individualDts(timePoint);
 
       if(abs(startTime - endTime) > 0){
-
-        if(integrateFunction == "rk4"){
-          boost::numeric::odeint::runge_kutta4< state_type > stepper;
-          numsteps = boost::numeric::odeint::integrate_const(stepper, individualOdeintModel, x,
-                                                             startTime, endTime,
-                                                             timeStep);//, push_back_state_and_time( x_vec , times ));
-        }else{
-          numsteps = boost::numeric::odeint::integrate(individualOdeintModel, x,
-                                                       startTime, endTime,
-                                                       timeStep);
+        double currentTimeStep = timeStep;
+        for(int integrateLoop = 0; integrateLoop < 20; integrateLoop++){
+          if(integrateFunction == "rk4"){
+            boost::numeric::odeint::runge_kutta4< state_type > stepper;
+            numsteps = boost::numeric::odeint::integrate_const(stepper, individualOdeintModel, x,
+                                                               startTime, endTime,
+                                                               currentTimeStep);//, push_back_state_and_time( x_vec , times ));
+          }else{
+            numsteps = boost::numeric::odeint::integrate(individualOdeintModel, x,
+                                                         startTime, endTime,
+                                                         currentTimeStep);
+          }
+          if(arma::is_finite(x)){break;}
+          currentTimeStep += timeStep*.1;
         }
+        if(!arma::is_finite(x) &&  verbose > 0){Rcpp::warning("Non-finite value in integration.");}
         m_ = x.col(0);
         A = arma::trimatl(getAFromSigmaPoints_C(x, meanWeights, c));
       }
@@ -358,6 +363,16 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
                                                       individualXTimeObservations(nonmissing),
                                                       mu(nonmissing), srS*arma::trans(srS));
 
+       if(breakEarly && !arma::is_finite(m2LL.elem(m2LLInd))){
+          if(verbose > 0){
+            Rcpp::warning("Non-finite m2LL");
+          }
+          Rcpp::List ret  = Rcpp::List::create(Rcpp::Named("latentScores") = latentScores,
+                                               Rcpp::Named("predictedManifest") = predictedManifest,
+                                               Rcpp::Named("m2LL") = m2LL);
+          return(ret);
+        }
+
       }else{
         // if all data is missing / no update is requested
         m = m_;
@@ -368,23 +383,13 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
 
   Rcpp::List ret  = Rcpp::List::create(Rcpp::Named("latentScores") = latentScores,
                                        Rcpp::Named("predictedManifest") = predictedManifest,
-                                       Rcpp::Named("m2LL") = m2LL,
-                                       Rcpp::Named("sigmaPoints") = x,
-                                       Rcpp::Named("Y_") = Y_,
-                                       Rcpp::Named("mu") = mu,
-                                       Rcpp::Named("S") = S,
-                                       Rcpp::Named("C") = C,
-                                       Rcpp::Named("K") = K,
-                                       Rcpp::Named("m_") = m_,
-                                       Rcpp::Named("P_") = P_,
-                                       Rcpp::Named("m") = m,
-                                       Rcpp::Named("A") = A);
+                                       Rcpp::Named("m2LL") = m2LL);
   return(ret);
 }
 
 // [[Rcpp::export]]
 Rcpp::NumericVector getGradients(Rcpp::List psydiffModel, double eps, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
-                                 double timeStep = 0.01, std::string integrateFunction = "default", int verbose = 0){
+                                 double timeStep = 0.01, std::string integrateFunction = "default", bool breakEarly = true, int verbose = 0){
   Rcpp::List psydiffModelClone = Rcpp::clone(psydiffModel);
   Rcpp::List pars = psydiffModelClone["pars"];
   Rcpp::DataFrame parameterTable = Rcpp::as<Rcpp::DataFrame>(pars["parameterTable"]);
@@ -398,13 +403,13 @@ Rcpp::NumericVector getGradients(Rcpp::List psydiffModel, double eps, double alp
 
     currentParameterValues(par) += eps;
     setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
-    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, verbose);
+    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, breakEarly, verbose);
     m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
     m2LLs(par,0) = sum(m2LL);
 
     currentParameterValues(par) -= 2*eps;
     setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
-    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, verbose);
+    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, breakEarly, verbose);
     m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
     m2LLs(par,1) = sum(m2LL);
 
@@ -580,7 +585,7 @@ public:
 
 // [[Rcpp::export]]
 Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
-                    double timeStep = 0.01, std::string integrateFunction = "default", int verbose = 0){
+                    double timeStep = 0.01, std::string integrateFunction = "default", bool breakEarly = true, int verbose = 0){
 
   // extract parameters from model
   Rcpp::List pars = psydiffModel["pars"];
@@ -719,17 +724,22 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
       endTime = individualDts(timePoint);
 
       if(abs(startTime - endTime) > 0){
-
-        if(integrateFunction == "rk4"){
-          boost::numeric::odeint::runge_kutta4< state_type > stepper;
-          numsteps = boost::numeric::odeint::integrate_const(stepper, individualOdeintModel, x,
-                                                             startTime, endTime,
-                                                             timeStep);//, push_back_state_and_time( x_vec , times ));
-        }else{
-          numsteps = boost::numeric::odeint::integrate(individualOdeintModel, x,
-                                                       startTime, endTime,
-                                                       timeStep);
+double currentTimeStep = timeStep;
+        for(int integrateLoop = 0; integrateLoop < 20; integrateLoop++){
+          if(integrateFunction == "rk4"){
+            boost::numeric::odeint::runge_kutta4< state_type > stepper;
+            numsteps = boost::numeric::odeint::integrate_const(stepper, individualOdeintModel, x,
+                                                               startTime, endTime,
+                                                               currentTimeStep);//, push_back_state_and_time( x_vec , times ));
+          }else{
+            numsteps = boost::numeric::odeint::integrate(individualOdeintModel, x,
+                                                         startTime, endTime,
+                                                         currentTimeStep);
+          }
+          if(arma::is_finite(x)){break;}
+          currentTimeStep += timeStep*.1;
         }
+        if(!arma::is_finite(x) &&  verbose > 0){Rcpp::warning("Non-finite value in integration.");}
         m_ = x.col(0);
         P_ = computePFromSigmaPoints_C(x, meanWeights, c);
       }
@@ -778,6 +788,16 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
                   individualXTimeObservations(nonmissing),
                   mu(nonmissing), S);
 
+        if(breakEarly && !arma::is_finite(m2LL.elem(m2LLInd))){
+          if(verbose > 0){
+            Rcpp::warning("Non-finite m2LL");
+          }
+          Rcpp::List ret  = Rcpp::List::create(Rcpp::Named("latentScores") = latentScores,
+                                               Rcpp::Named("predictedManifest") = predictedManifest,
+                                               Rcpp::Named("m2LL") = m2LL);
+          return(ret);
+        }
+
       }else{
         // if all data is missing / no update is requested
         m = m_;
@@ -792,17 +812,7 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
 
   Rcpp::List ret  = Rcpp::List::create(Rcpp::Named("latentScores") = latentScores,
                                        Rcpp::Named("predictedManifest") = predictedManifest,
-                                       Rcpp::Named("m2LL") = m2LL,
-                                       Rcpp::Named("sigmaPoints") = x,
-                                       Rcpp::Named("Y_") = Y_,
-                                       Rcpp::Named("mu") = mu,
-                                       Rcpp::Named("S") = S,
-                                       Rcpp::Named("C") = C,
-                                       Rcpp::Named("K") = K,
-                                       Rcpp::Named("m_") = m_,
-                                       Rcpp::Named("P_") = P_,
-                                       Rcpp::Named("m") = m,
-                                       Rcpp::Named("P") = P);
+                                       Rcpp::Named("m2LL") = m2LL);
   return(ret);
 }
 
@@ -822,13 +832,13 @@ Rcpp::NumericVector getGradients(Rcpp::List psydiffModel, double eps, double alp
 
     currentParameterValues(par) += eps;
     setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
-    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, verbose);
+    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, breakEarly, verbose);
     m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
     m2LLs(par,0) = sum(m2LL);
 
     currentParameterValues(par) -= 2*eps;
     setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
-    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, verbose);
+    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, breakEarly, verbose);
     m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
     m2LLs(par,1) = sum(m2LL);
 
