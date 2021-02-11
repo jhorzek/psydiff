@@ -94,7 +94,7 @@ arma::mat getMMatrix(const arma::mat &sigmaPoints, const odeintpars &pars,
   arma::mat A =  getAFromSigmaPoints_C(sigmaPoints,
                                        pars.meanWeights,
                                        pars.c);
-  invCov = arma::inv(A);
+  invCov = arma::inv(arma::trimatl(A));
 
 
   // Qc
@@ -359,9 +359,9 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
         // compute Likelihood --nonmissing
 
         arma::uvec m2LLInd = arma::find(Rcpp::as<arma::rowvec>(uniquePersons) == selectedPerson);
-        m2LL.elem(m2LLInd) += computeIndividualM2LL_C(nObservedVariables,
+        m2LL.elem(m2LLInd) += computeIndividualM2LLChol_C(nObservedVariables,
                                                       individualXTimeObservations(nonmissing),
-                                                      mu(nonmissing), srS*arma::trans(srS));
+                                                      mu(nonmissing), srS);
 
        if(breakEarly && !arma::is_finite(m2LL.elem(m2LLInd))){
           if(verbose > 0){
@@ -515,7 +515,7 @@ arma::mat getMMatrix(const arma::mat &sigmaPoints, const odeintpars &pars,
   arma::mat A =  getAFromSigmaPoints_C(sigmaPoints,
                                        pars.meanWeights,
                                        pars.c);
-  invCov = arma::inv(A);
+  invCov = arma::inv(arma::trimatl(A));
 
 
   // Qc

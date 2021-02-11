@@ -114,6 +114,22 @@ inline double computeIndividualM2LL_C(const int &nObservedVariables,
   return(m2LL);
 }
 
+inline double computeIndividualM2LLChol_C(const int &nObservedVariables,
+                                      const arma::colvec &rawData,
+                                      const arma::colvec &expectedMeans,
+                                      const arma::mat &expectedCovarianceChol){
+  double m2LL;
+  double klog2pi = nObservedVariables*std::log(2*M_PI);
+  double logDetExpCov = 2*sum(arma::log(expectedCovarianceChol.diag()));
+  arma::colvec residual = rawData - expectedMeans;
+  arma::mat choInv = arma::inv(arma::trimatl(expectedCovarianceChol));
+  arma::mat dist = arma::trans(residual)*arma::trans(choInv)*choInv*(residual);
+  m2LL = klog2pi +
+    logDetExpCov +
+    dist(0,0); // note: dist is a 1x1 matrix; extraction is necessary for the data type to be compatible
+  return(m2LL);
+}
+
 inline arma::mat cholupdate_C(arma::mat L, arma::colvec x, double v, std::string direction){
   // Computes the cholupdate for the square root unscented update (see van der Merwe & Wan, 2001)
   // follows the code example found here: https://en.wikipedia.org/wiki/Cholesky_decomposition
@@ -183,7 +199,8 @@ inline arma::mat predictSquareRootOfS_C(arma::mat Y_, arma::colvec mu, arma::mat
 
 
 inline arma::mat computeK_SR_C(const arma::mat &C, const arma::mat &srS){
-  return C * arma::inv(srS*arma::trans(srS));
+  arma::mat srSInv = arma::inv(arma::trimatl(srS));
+  return C * arma::trans(srSInv)*srSInv;
 }
 
 
