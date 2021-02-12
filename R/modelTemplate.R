@@ -94,7 +94,7 @@ arma::mat getMMatrix(const arma::mat &sigmaPoints, const odeintpars &pars,
   arma::mat A =  getAFromSigmaPoints_C(sigmaPoints,
                                        pars.meanWeights,
                                        pars.c);
-  invCov = arma::inv(arma::trimatl(A));
+  invCov = arma::pinv(arma::trimatl(A));
 
 
   // Qc
@@ -300,6 +300,7 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
       endTime = individualDts(timePoint);
 
       if(abs(startTime - endTime) > 0){
+        Rcpp::checkUserInterrupt();
         double currentTimeStep = timeStep;
         for(int integrateLoop = 0; integrateLoop < 20; integrateLoop++){
           if(integrateFunction == "rk4"){
@@ -419,7 +420,7 @@ Rcpp::NumericVector getGradients(Rcpp::List psydiffModel, double eps, double alp
 
   gradients = (m2LLs(Rcpp::_,0) - m2LLs(Rcpp::_,1))/(2*eps);
   gradients.names() = currentParameterValues.names();
-  return(gradients);
+  return(Rcpp::clone(gradients));
 }
 
 '
@@ -515,7 +516,7 @@ arma::mat getMMatrix(const arma::mat &sigmaPoints, const odeintpars &pars,
   arma::mat A =  getAFromSigmaPoints_C(sigmaPoints,
                                        pars.meanWeights,
                                        pars.c);
-  invCov = arma::inv(arma::trimatl(A));
+  invCov = arma::pinv(arma::trimatl(A));
 
 
   // Qc
@@ -724,7 +725,8 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
       endTime = individualDts(timePoint);
 
       if(abs(startTime - endTime) > 0){
-double currentTimeStep = timeStep;
+        Rcpp::checkUserInterrupt();
+        double currentTimeStep = timeStep;
         for(int integrateLoop = 0; integrateLoop < 20; integrateLoop++){
           if(integrateFunction == "rk4"){
             boost::numeric::odeint::runge_kutta4< state_type > stepper;
@@ -818,7 +820,7 @@ double currentTimeStep = timeStep;
 
 // [[Rcpp::export]]
 Rcpp::NumericVector getGradients(Rcpp::List psydiffModel, double eps, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
-                                 double timeStep = 0.01, std::string integrateFunction = "default", int verbose = 0){
+                                 double timeStep = 0.01, std::string integrateFunction = "default", breakEarly = true, int verbose = 0){
   Rcpp::List psydiffModelClone = Rcpp::clone(psydiffModel);
   Rcpp::List pars = psydiffModelClone["pars"];
   Rcpp::DataFrame parameterTable = Rcpp::as<Rcpp::DataFrame>(pars["parameterTable"]);
@@ -848,7 +850,7 @@ Rcpp::NumericVector getGradients(Rcpp::List psydiffModel, double eps, double alp
 
   gradients = (m2LLs(Rcpp::_,0) - m2LLs(Rcpp::_,1))/(2*eps);
   gradients.names() = currentParameterValues.names();
-  return(gradients);
+  return(Rcpp::clone(gradients));
 }
 '
   }

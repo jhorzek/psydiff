@@ -88,7 +88,7 @@ inline arma::mat predictC_C(const arma::mat &sigmaPoints, const arma::mat &Y_,
 }
 
 inline arma::mat computeK_C(const arma::mat &C, const arma::mat &S){
-  return C * arma::inv(S);
+  return C * arma::pinv(S);
 }
 
 inline arma::mat updateM_C(const arma::colvec &m_, const arma::mat &K,
@@ -107,7 +107,7 @@ inline double computeIndividualM2LL_C(const int &nObservedVariables,
   double m2LL;
   double klog2pi = nObservedVariables*std::log(2*M_PI);
   double logDetExpCov = std::log(arma::det(expectedCovariance));
-  arma::mat dist = arma::trans(rawData - expectedMeans)*arma::inv(expectedCovariance)*(rawData - expectedMeans);
+  arma::mat dist = arma::trans(rawData - expectedMeans)*arma::pinv(expectedCovariance)*(rawData - expectedMeans);
   m2LL = klog2pi +
     logDetExpCov +
     dist(0,0); // note: dist is a 1x1 matrix; extraction is necessary for the data type to be compatible
@@ -122,7 +122,7 @@ inline double computeIndividualM2LLChol_C(const int &nObservedVariables,
   double klog2pi = nObservedVariables*std::log(2*M_PI);
   double logDetExpCov = 2*sum(arma::log(expectedCovarianceChol.diag()));
   arma::colvec residual = rawData - expectedMeans;
-  arma::mat choInv = arma::inv(arma::trimatl(expectedCovarianceChol));
+  arma::mat choInv = arma::pinv(arma::trimatl(expectedCovarianceChol));
   arma::mat dist = arma::trans(residual)*arma::trans(choInv)*choInv*(residual);
   m2LL = klog2pi +
     logDetExpCov +
@@ -199,7 +199,7 @@ inline arma::mat predictSquareRootOfS_C(arma::mat Y_, arma::colvec mu, arma::mat
 
 
 inline arma::mat computeK_SR_C(const arma::mat &C, const arma::mat &srS){
-  arma::mat srSInv = arma::inv(arma::trimatl(srS));
+  arma::mat srSInv = arma::pinv(arma::trimatl(srS));
   return C * arma::trans(srSInv)*srSInv;
 }
 
