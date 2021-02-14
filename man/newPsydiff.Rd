@@ -17,7 +17,15 @@ newPsydiff(
   groupingvariables = NULL,
   additional = NULL,
   srUpdate = TRUE,
-  compile = TRUE
+  alpha = 0.2,
+  beta = 2,
+  kappa = 0,
+  timeStep = NULL,
+  integrateFunction = "default",
+  breakEarly = TRUE,
+  verbose = 0,
+  eps = c(1e-04, 1e-05, 1e-06, 1e-07),
+  direction = "right"
 )
 }
 \arguments{
@@ -45,12 +53,26 @@ newPsydiff(
 
 \item{srUpdate}{boolean: Should the square root version be used for the updates?}
 
-\item{compile}{boolean: should the model be compiled}
+\item{alpha}{controls the alpha parameter of the unscented transform. Should be relatively small.}
+
+\item{beta}{controls the beta parameter of the unscented transform. 2 should work fine for normal distributions}
+
+\item{kappa}{controls the kappa parameter of the unscented transform. 0 should work fine for normal distributions}
+
+\item{timeStep}{timeStep of the numerical integration. You should pass a vector as the integration might run into problems for a specific value (e.g., .01) but work fine for another (e.g., .005). The function will stop once one of the integrations resulted in no errors}
+
+\item{integrateFunction}{which function should be used for integration? Possible are rk4, runge_kutta_dopri5, and default. default will first try rk4 and - if this fails - runge_kutta_dopri5. rk4 is often a lot slower on average but runge_kutta_dopri5 tends to get stuck from time to time.}
+
+\item{breakEarly}{boolean: Should the integration be stopped if the prediction for at least one time point did not work? Setting to FALSE can be useful for debugging}
+
+\item{verbose}{Values > 0 will print additional information}
+
+\item{eps}{controls the step size in the numerical approximation of the gradients. You should pass a vector, as this will allow psydiff to try computing the gradients for an alternative step size if one of them fails}
+
+\item{direction}{direction of the steps for gradient approximation. Possible are right, left, and central.}
 }
 \value{
-psydiffModel that can be fitted with fitModel()
-
-cppCode if compile = FALSE, the C++ code for the model will be returned
+psydiffModel that can be compiled with compileModel()
 }
 \description{
 newPsydiff
@@ -136,7 +158,10 @@ L = sdeModelMatrix(values = t(chol(myModel$mxobj$DIFFUSION$result)),
 model <- newPsydiff(dataset = dat, latentEquations = latentEquations,
                   manifestEquations = manifestEquations,
                   L = L, Rchol = Rchol, A0 = A0, m0 = m0,
-                  parameters = parameters, compile = TRUE)
+                  parameters = parameters)
+
+# compile model
+compileModel(model)
 
 # fit model
 out <- fitModel(psydiffModel = model)
@@ -183,4 +208,75 @@ parval <- psydiff::getParameterValues(model)
 optimized <- optim(par = parval, fn = fitfun, gr = NULL, model, method = "BFGS")
 optimized$par
 optimized$value
+
+## The following example is taken from ctsem and also demonstrates the use of the GIST optimizer
+library(ctsemOMX)
+data('ctExample3')
+model <- ctModel(n.latent = 1, n.manifest = 3, Tpoints = 100,
+                 LAMBDA = matrix(c(1, 'lambda2', 'lambda3'), nrow = 3, ncol = 1),
+                 CINT= matrix('cint'), T0VAR = diag(1),
+                 MANIFESTMEANS = matrix(c(0, 'manifestmean2', 'manifestmean3'), nrow = 3,
+                                        ncol = 1))
+fit <- ctFit(dat = ctExample3, ctmodelobj = model, objective = 'Kalman',
+             stationary = c("T0TRAITEFFECT", "T0TIPREDEFFECT"), useOptimizer = F)
+omxGetParameters(fit$mxobj)
+fit$mxobj$fitfunction$result[[1]]
+
+latentEquations <- "
+dx(0) = cint + driftEta1*x(0);
+"
+manifestEquations <- "
+y(0) = x(0);
+y(1) = manifestmean2 + lambda2*x(0);
+y(2) = manifestmean3 + lambda3*x(0);
+"
+
+parameters <- list("driftEta1" = -.1,
+                   "cint" = 2,
+                   "lambda2" = 3,
+                   "lambda3" = 2,
+                   "manifestmean2" = 1,
+                   "manifestmean3" = 3)
+
+m0  <- fromMxMatrix(fit$mxobj$T0MEANS)
+A0 <- sdeModelMatrix(values = fit$mxobj$T0VARchol$result,
+                     labels = matrix("",1,1))
+Rchol = sdeModelMatrix(values = fit$mxobj$MANIFESTVARchol$result,
+                       labels = matrix(c("mvar1", "", "",
+                                         "", "mvar2", "",
+                                         "", "", "mvar3"),3,3,T))
+L = sdeModelMatrix(values = fit$mxobj$DIFFUSIONchol$result,
+                   labels = matrix(c("lvar"),1,1,T))
+
+longdata <- ctWideToLong(ctExample3, n.manifest = 3, Tpoints =  100)
+dat <- list("person" = longdata[,"id"], "observations" = longdata[,c("Y1", "Y2", "Y3")], "dt" = longdata[,"dT"])
+
+# set up model
+model <- newPsydiff(dataset = dat, latentEquations = latentEquations,
+                    manifestEquations = manifestEquations,
+                    L = L, Rchol = Rchol, A0 = A0, m0 = m0,
+                    parameters = parameters, verbose = 0, kappa = 0, alpha = .81, beta = 2)
+
+compileModel(model)
+out <- fitModel(model)
+out$m2LL
+getParameterValues(model)
+
+startingValues <- psydiff::getParameterValues(model)
+adaptiveLassoWeights <- rep(1, length(startingValues))
+names(adaptiveLassoWeights) <- names(startingValues)
+regularizedParameters <- "lvar"
+lambda <- 0
+
+opt <- GIST(model = model, startingValues = startingValues, lambda = lambda,
+            adaptiveLassoWeights = adaptiveLassoWeights,
+            regularizedParameters = regularizedParameters,
+            verbose = 1, maxIter_out = 200, sig = .4, break_outer = 10e-20)
+
+getParameterValues(opt$model)
+out <- fitModel(opt$model)
+matplot(out$predictedManifest, type = "l")
+points(dat$observations[,1])
+points(dat$observations[,2])
+points(dat$observations[,3])
 }

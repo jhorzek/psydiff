@@ -19,14 +19,16 @@
 #' @param maxIter_out maximal number of outer iterations
 #' @param maxIter_in maximal number of inner iterations
 #' @param break_outer stopping criterion for the outer iteration.
+#' @param numDeriv boolean should numDeriv package be used for derivatives?
 #' @param verbose set to 1 to print additional information and plot the convergence
 #' @export
 GIST <- function(model, startingValues, lambda, adaptiveLassoWeights, regularizedParameters,
-                 integrateFunction = "rk4", eps = .0000000001,
                  eta = 1.5, sig = .2, initialStepsize = 1, stepsizeMin = 0, stepsizeMax = 999999999,
                  GISTLinesearchCriterion = "monotone", GISTNonMonotoneNBack = 5,
                  maxIter_out = 100, maxIter_in = 100,
-                 break_outer = .00000001, verbose = 0, silent = FALSE){
+                 break_outer = .00000001,
+                 numDeriv = FALSE,
+                 verbose = 0, silent = FALSE){
   # iteration counter
   k_out <- 1
   convergence <- TRUE
@@ -40,8 +42,8 @@ GIST <- function(model, startingValues, lambda, adaptiveLassoWeights, regularize
   psydiff::setParameterValues(parameterTable = model$pars$parameterTable,
                               parameterValues = startingValues,
                               parameterLabels = names(startingValues))
-  invisible(capture.output(out1 <- try(fitModel(model, integrateFunction = integrateFunction), silent = T), type = "message"))
-  if(any(class(out1) == "try-error")  |
+  invisible(capture.output(out1 <- try(fitModel(model), silent = T), type = "message"))
+  if(any(class(out1) == "try-error")  ||
      anyNA(out1$m2LL)){
     stop("Infeasible starting values in GIST.")
   }
@@ -50,7 +52,12 @@ GIST <- function(model, startingValues, lambda, adaptiveLassoWeights, regularize
   parameters_k <- getParameterValues(model)
   parameterNames <- names(parameters_k)
   gradients_km1 <- NULL
-  gradients_k <- getGradients(model, eps = eps, integrateFunction =integrateFunction)
+  if(numDeriv){
+    gradients_k <- try(numDeriv::grad(fitf, x = parameters_k, method = "Richardson", model = model))
+  }else{
+    gradients_k <- try(getGradients(model))
+  }
+
   m2LL_k <- sum(out1$m2LL)
 
   regM2LL_k <- m2LL_k + regCtsem::exact_getRegValue(lambda = lambda,
@@ -130,8 +137,8 @@ GIST <- function(model, startingValues, lambda, adaptiveLassoWeights, regularize
       psydiff::setParameterValues(parameterTable = model$pars$parameterTable,
                                   parameterValues = parameters_kp1,
                                   parameterLabels = names(parameters_kp1))
-      invisible(capture.output(out1 <- try(fitModel(model, integrateFunction = integrateFunction), silent = T), type = "message"))
-      if(any(class(out1) == "try-error") | anyNA(out1$m2LL)){
+      invisible(capture.output(out1 <- try(fitModel(model), silent = T), type = "message"))
+      if(any(class(out1) == "try-error") || anyNA(out1$m2LL)){
 
         # update step size
         stepsize <- eta*stepsize
@@ -187,13 +194,18 @@ GIST <- function(model, startingValues, lambda, adaptiveLassoWeights, regularize
         warning("Maximal number of inner iterations used by GIST. Consider increasing the number of inner iterations.")}
     }
 
-    out3 <- getGradients(model, eps = eps, integrateFunction=integrateFunction)
+    if(numDeriv){
+      out3 <- try(numDeriv::grad(fitf, x = parameters_k, method = "Richardson", model = model))
+    }else{
+      out3 <- try(getGradients(model))
+    }
 
-    if(any(class(out3) == "try-error") |
+    if(any(class(out3) == "try-error") ||
        anyNA(out3)){
       if(!silent){
         convergence <- FALSE
         stop("No gradients in GIST")}
+
     }
 
     gradients_kp1 <- out3
@@ -269,3 +281,10 @@ GIST <- function(model, startingValues, lambda, adaptiveLassoWeights, regularize
               "convergence" = convergence))
 
 }
+
+fitf <- function(pars, model){
+  setParameterValues(model$pars$parameterTable, parameterValues = pars, parameterLabels = names(pars))
+  fit <- fitModel(model)
+  return(sum(fit$m2LL))
+}
+

@@ -94,7 +94,7 @@ arma::mat getMMatrix(const arma::mat &sigmaPoints, const odeintpars &pars,
   arma::mat A =  getAFromSigmaPoints_C(sigmaPoints,
                                        pars.meanWeights,
                                        pars.c);
-  invCov = arma::pinv(arma::trimatl(A));
+  invCov = arma::inv(arma::trimatl(A));
 
 
   // Qc
@@ -163,8 +163,17 @@ class odeintModel{
 };
 
 // [[Rcpp::export]]
-Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
-                    double timeStep = 0.01, std::string integrateFunction = "default", bool breakEarly = true, int verbose = 0){
+Rcpp::List fitModel(Rcpp::List psydiffModel){
+
+  // extract settings
+  double alpha = psydiffModel["alpha"];
+  double beta = psydiffModel["beta"];
+  double kappa = psydiffModel["kappa"];
+
+  arma::colvec timeStep = psydiffModel["timeStep"];
+  std::string integrateFunction = psydiffModel["integrateFunction"];
+  bool breakEarly = psydiffModel["breakEarly"];
+  int verbose = psydiffModel["verbose"];
 
   // extract parameters from model
   Rcpp::List pars = psydiffModel["pars"];
@@ -199,28 +208,29 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
   // changed
   Rcpp::LogicalVector changed = parameterTable["changed"];
 
+  // fit
+  arma::colvec m2LL = psydiffModel["m2LL"]; // -2 log likelihood
+
+  // predictions
+  arma::mat latentScores = psydiffModel["latentScores"]; // collects predicted latent scores
+  arma::mat predictedManifest = psydiffModel["predictedManifest"]; // collects predicted observations
+
   // initialize Unscented matrices
   int numsteps, nObservedVariables, timePoints;
   arma::mat individualObservations, // data for one individual
   Y_(odeintparam.nmanifest, 2*odeintparam.nlatent+1), // predicted observations from sigma points
-  P(odeintparam.nlatent, odeintparam.nlatent), // updated latent covariance
-  P_(odeintparam.nlatent, odeintparam.nlatent), // latent covariance
   A(odeintparam.nlatent, odeintparam.nlatent), // root of (updated) latent covariance
   S(odeintparam.nmanifest,odeintparam.nmanifest), // predicted observed covariance
   C(odeintparam.nlatent, odeintparam.nmanifest), // predicted cross-covariance
-  K(odeintparam.nlatent, odeintparam.nmanifest), // Kalman Gain
-  latentScores(observations.n_rows, odeintparam.nlatent, arma::fill::zeros), // collects predicted latent scores
-  predictedManifest(observations.n_rows, odeintparam.nmanifest, arma::fill::zeros); // collects predicted observations
-  //individualLatentScores,
-  //individualPredictedManifest;
+  K(odeintparam.nlatent, odeintparam.nmanifest); // Kalman Gain
+
   arma::colvec individualDts, // person specific dt
   m_(odeintparam.nlatent), // predicted latent means
   m(odeintparam.nlatent), // updated latent means
   mu(odeintparam.nmanifest), // predicted manifest means
   individualXTimeObservations, // for the observed data of a person at a specific time point
   observedNotNA, // will be used to store observations without missings
-  residual, // difference between observed and predicted
-  m2LL(sampleSize, arma::fill::zeros); // individual likelihoods
+  residual; // difference between observed and predicted
   arma::uvec nonmissing, // vector for indices of nonmissing data
   missing; // vector for indices of missing data
 
@@ -242,22 +252,29 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
       if(verbose == 1){Rcpp::Rcout << "Skipping person " << selectedPerson << std::endl;}
       continue;
     }
-    // if something changed, set parameters
-    // Step 1: Set parameters
+    // if something changed:
+    // Set parameters
     // (will pass by reference and change the parameters directly in the parameterList)
-    setParameterList_C(parameterTable, parameterList, selectedPerson);
+    setParameterList_C(parameterTable, odeintparam.parameterList, selectedPerson);
 
-    // extract initial parameters
-    m = Rcpp::as<arma::colvec>(parameterList["m0"]);
-    P = Rcpp::as<arma::mat>(parameterList["A0"])*arma::trans(Rcpp::as<arma::mat>(parameterList["A0"]));
-    A = chol(P, "lower");
-    arma::mat Rchol = odeintparam.parameterList["Rchol"];
-    arma::mat R = Rchol*arma::trans(Rchol); // manifest covariance
+    // reset likelihood
+    arma::uvec m2LLInd = arma::find(Rcpp::as<arma::rowvec>(uniquePersons) == selectedPerson);
+    m2LL.elem(m2LLInd) -= m2LL.elem(m2LLInd);
+
+    // reset predictions
+    arma::uvec rowInd = arma::find(Rcpp::as<arma::rowvec>(personsInData) == selectedPerson);
+    latentScores.rows(rowInd) -= latentScores.rows(rowInd);
+    predictedManifest.rows(rowInd) -= predictedManifest.rows(rowInd);
 
     // extract individual observations
-    arma::uvec rowInd = arma::find(Rcpp::as<arma::rowvec>(personsInData) == selectedPerson);
+
     individualObservations = observations.rows(rowInd);
     individualDts = dt.rows(rowInd);
+
+    // extract initial parameters
+    m = Rcpp::as<arma::colvec>(odeintparam.parameterList["m0"]);
+    A = Rcpp::as<arma::mat>(odeintparam.parameterList["A0"]);
+    arma::mat Rchol = odeintparam.parameterList["Rchol"];
 
     // iterate over all time points
     double timeSum = 0.0;
@@ -300,21 +317,31 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
       endTime = individualDts(timePoint);
 
       if(abs(startTime - endTime) > 0){
+        boost::numeric::odeint::runge_kutta4< state_type > stepper;
+
         Rcpp::checkUserInterrupt();
-        double currentTimeStep = timeStep;
-        for(int integrateLoop = 0; integrateLoop < 20; integrateLoop++){
+        for(int integrateLoop = 0; integrateLoop < timeStep.n_rows; integrateLoop++){
+          double currentTimeStep = timeStep(integrateLoop);
           if(integrateFunction == "rk4"){
-            boost::numeric::odeint::runge_kutta4< state_type > stepper;
             numsteps = boost::numeric::odeint::integrate_const(stepper, individualOdeintModel, x,
                                                                startTime, endTime,
-                                                               currentTimeStep);//, push_back_state_and_time( x_vec , times ));
-          }else{
+                                                               currentTimeStep);
+          }else if(integrateFunction == "runge_kutta_dopri5"){
             numsteps = boost::numeric::odeint::integrate(individualOdeintModel, x,
                                                          startTime, endTime,
                                                          currentTimeStep);
+          }else{
+            numsteps = boost::numeric::odeint::integrate_const(stepper, individualOdeintModel, x,
+                                                               startTime, endTime,
+                                                               currentTimeStep);
+            if(!arma::is_finite(x)){
+              // try runge_kutta_dopri5 if rk4 failed
+              numsteps = boost::numeric::odeint::integrate(individualOdeintModel, x,
+                                                           startTime, endTime,
+                                                           currentTimeStep);
+            }
           }
           if(arma::is_finite(x)){break;}
-          currentTimeStep += timeStep*.1;
         }
         if(!arma::is_finite(x) &&  verbose > 0){Rcpp::warning("Non-finite value in integration.");}
         m_ = x.col(0);
@@ -359,7 +386,6 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
 
         // compute Likelihood --nonmissing
 
-        arma::uvec m2LLInd = arma::find(Rcpp::as<arma::rowvec>(uniquePersons) == selectedPerson);
         m2LL.elem(m2LLInd) += computeIndividualM2LLChol_C(nObservedVariables,
                                                       individualXTimeObservations(nonmissing),
                                                       mu(nonmissing), srS);
@@ -380,7 +406,11 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
         latentScores.row(min(rowInd) + timePoint) = arma::trans(m);
       }
     }
+    changed[personInParameterTable == selectedPerson] = false;
   }
+  psydiffModel["m2LL"] = m2LL;
+  psydiffModel["latentScores"] = latentScores;
+  psydiffModel["predictedManifest"] = predictedManifest;
 
   Rcpp::List ret  = Rcpp::List::create(Rcpp::Named("latentScores") = latentScores,
                                        Rcpp::Named("predictedManifest") = predictedManifest,
@@ -389,36 +419,80 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericVector getGradients(Rcpp::List psydiffModel, double eps, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
-                                 double timeStep = 0.01, std::string integrateFunction = "default", bool breakEarly = true, int verbose = 0){
+Rcpp::NumericVector getGradients(Rcpp::List psydiffModel){
   Rcpp::List psydiffModelClone = Rcpp::clone(psydiffModel);
   Rcpp::List pars = psydiffModelClone["pars"];
   Rcpp::DataFrame parameterTable = Rcpp::as<Rcpp::DataFrame>(pars["parameterTable"]);
   Rcpp::NumericVector currentParameterValues = getParameterValues_C(psydiffModelClone);
-  Rcpp::NumericMatrix m2LLs(currentParameterValues.length() , 2);
+  arma::colvec eps = psydiffModelClone["eps"];
+  std::string direction = psydiffModelClone["direction"];
+  Rcpp::NumericMatrix m2LLs(currentParameterValues.length() , 3);
+  m2LLs.fill(0.0);
   Rcpp::NumericVector gradients(currentParameterValues.length());
   arma::colvec m2LL;
   Rcpp::List fittedModel;
+  double rightM2LL, leftM2LL;
+
+  if(!(direction == "central" || direction == "left" || direction == "right" )){
+    Rcpp::stop("Unknown direction argument. Possible are central, left and right");
+  }
+
+  if(direction == "left"){
+    fittedModel = fitModel(psydiffModelClone);
+    rightM2LL = sum(Rcpp::as<arma::colvec>(fittedModel["m2LL"]));
+  }
+  if(direction == "right"){
+    fittedModel = fitModel(psydiffModelClone);
+    leftM2LL = sum(Rcpp::as<arma::colvec>(fittedModel["m2LL"]));
+  }
 
   for(int par = 0; par < currentParameterValues.length(); par++){
 
-    currentParameterValues(par) += eps;
-    setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
-    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, breakEarly, verbose);
-    m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
-    m2LLs(par,0) = sum(m2LL);
+    // Step left
+    if(direction == "left" || direction == "central"){
+      for(int e = 0; e < eps.n_elem; e++){
+        currentParameterValues(par) -= eps(e);
+        setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+        fittedModel = fitModel(psydiffModelClone);
+        m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
+        currentParameterValues(par) += eps(e);
+        if(arma::is_finite(sum(m2LL))){
+          m2LLs(par,0) = sum(m2LL);
+          m2LLs(par,2) += eps(e);
+          break;
+        }else{
+          m2LLs(par,0) = R_NaN;
+        }
+      }
 
-    currentParameterValues(par) -= 2*eps;
-    setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
-    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, breakEarly, verbose);
-    m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
-    m2LLs(par,1) = sum(m2LL);
+    }else{
+      m2LLs(par,0) = leftM2LL;
+    }
 
-    currentParameterValues(par) += eps;
+    // Step right
+    if(direction == "right" || direction == "central"){
+      for(int e = 0; e < eps.n_elem; e++){
+        currentParameterValues(par) += eps(e);
+        setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+        fittedModel = fitModel(psydiffModelClone);
+        m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
+        currentParameterValues(par) -= eps(e);
+        if(arma::is_finite(sum(m2LL))){
+          m2LLs(par,1) = sum(m2LL);
+          m2LLs(par,2) += eps(e);
+          break;
+        }else{
+          m2LLs(par,0) = R_NaN;
+        }
+      }
+    }else{
+      m2LLs(par,1) = rightM2LL;
+    }
 
   }
 
-  gradients = (m2LLs(Rcpp::_,0) - m2LLs(Rcpp::_,1))/(2*eps);
+  gradients = (m2LLs(Rcpp::_,1) - m2LLs(Rcpp::_,0))/m2LLs(Rcpp::_,2);
+
   gradients.names() = currentParameterValues.names();
   return(Rcpp::clone(gradients));
 }
@@ -516,7 +590,7 @@ arma::mat getMMatrix(const arma::mat &sigmaPoints, const odeintpars &pars,
   arma::mat A =  getAFromSigmaPoints_C(sigmaPoints,
                                        pars.meanWeights,
                                        pars.c);
-  invCov = arma::pinv(arma::trimatl(A));
+  invCov = arma::inv(arma::trimatl(A));
 
 
   // Qc
@@ -585,8 +659,16 @@ public:
 };
 
 // [[Rcpp::export]]
-Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
-                    double timeStep = 0.01, std::string integrateFunction = "default", bool breakEarly = true, int verbose = 0){
+Rcpp::List fitModel(Rcpp::List psydiffModel){
+  // extract settings
+  double alpha = psydiffModel["alpha"];
+  double beta = psydiffModel["beta"];
+  double kappa = psydiffModel["kappa"];
+
+  arma::colvec timeStep = psydiffModel["timeStep"];
+  std::string integrateFunction = psydiffModel["integrateFunction"];
+  bool breakEarly = psydiffModel["breakEarly"];
+  int verbose = psydiffModel["verbose"];
 
   // extract parameters from model
   Rcpp::List pars = psydiffModel["pars"];
@@ -621,28 +703,30 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
   // changed
   Rcpp::LogicalVector changed = parameterTable["changed"];
 
+  // fit
+  arma::colvec m2LL = psydiffModel["m2LL"]; // -2 log likelihood
+
+  // predictions
+  arma::mat latentScores = psydiffModel["latentScores"]; // collects predicted latent scores
+  arma::mat predictedManifest = psydiffModel["predictedManifest"]; // collects predicted observations
+
   // initialize Unscented matrices
   int numsteps, nObservedVariables, timePoints;
   arma::mat individualObservations, // data for one individual
   Y_(odeintparam.nmanifest, 2*odeintparam.nlatent+1), // predicted observations from sigma points
-  P(odeintparam.nlatent, odeintparam.nlatent), // updated latent covariance
-  P_(odeintparam.nlatent, odeintparam.nlatent), // latent covariance
   A(odeintparam.nlatent, odeintparam.nlatent), // root of (updated) latent covariance
   S(odeintparam.nmanifest,odeintparam.nmanifest), // predicted observed covariance
   C(odeintparam.nlatent, odeintparam.nmanifest), // predicted cross-covariance
-  K(odeintparam.nlatent, odeintparam.nmanifest), // Kalman Gain
-  latentScores(observations.n_rows, odeintparam.nlatent, arma::fill::zeros), // collects predicted latent scores
-  predictedManifest(observations.n_rows, odeintparam.nmanifest, arma::fill::zeros); // collects predicted observations
-  //individualLatentScores,
-  //individualPredictedManifest;
+  K(odeintparam.nlatent, odeintparam.nmanifest); // Kalman Gain
+
   arma::colvec individualDts, // person specific dt
   m_(odeintparam.nlatent), // predicted latent means
   m(odeintparam.nlatent), // updated latent means
   mu(odeintparam.nmanifest), // predicted manifest means
   individualXTimeObservations, // for the observed data of a person at a specific time point
   observedNotNA, // will be used to store observations without missings
-  residual, // difference between observed and predicted
-  m2LL(sampleSize, arma::fill::zeros); // individual likelihoods
+  residual; // difference between observed and predicted
+
   arma::uvec nonmissing, // vector for indices of nonmissing data
   missing; // vector for indices of missing data
 
@@ -664,23 +748,29 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
       if(verbose == 1){Rcpp::Rcout << "Skipping person " << selectedPerson << std::endl;}
       continue;
     }
-    // if something changed, set parameters
-    // Step 1: Set parameters
-    // (will pass by reference and change the parameters directly in the parameterList)
+    // if something changed:
+    // Set parameters
+    // (will pass by reference and change the parameters directly in the
     setParameterList_C(parameterTable, parameterList, selectedPerson);
+
+    // reset likelihood
+    arma::uvec m2LLInd = arma::find(Rcpp::as<arma::rowvec>(uniquePersons) == selectedPerson);
+    m2LL.elem(m2LLInd) -= m2LL.elem(m2LLInd);
+
+    // reset predictions
+    arma::uvec rowInd = arma::find(Rcpp::as<arma::rowvec>(personsInData) == selectedPerson);
+    latentScores.rows(rowInd) -= latentScores.rows(rowInd);
+    predictedManifest.rows(rowInd) -= predictedManifest.rows(rowInd);
+
+    // extract individual observations
+    individualObservations = observations.rows(rowInd);
+    individualDts = dt.rows(rowInd);
 
     // extract initial parameters
     m = Rcpp::as<arma::colvec>(parameterList["m0"]);
     P = Rcpp::as<arma::mat>(parameterList["A0"])*arma::trans(Rcpp::as<arma::mat>(parameterList["A0"]));
     arma::mat Rchol = odeintparam.parameterList["Rchol"];
     arma::mat R = Rchol*arma::trans(Rchol); // manifest covariance
-
-    // extract individual observations
-    arma::uvec rowInd = arma::find(Rcpp::as<arma::rowvec>(personsInData) == selectedPerson);
-    individualObservations = observations.rows(rowInd);
-    individualDts = dt.rows(rowInd);
-    //individualPredictedManifest = predictedManifest.rows(rowInd);
-    //individualLatentScores = latentScores.rows(rowInd);
 
     // iterate over all time points
     double timeSum = 0.0;
@@ -725,21 +815,31 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
       endTime = individualDts(timePoint);
 
       if(abs(startTime - endTime) > 0){
+        boost::numeric::odeint::runge_kutta4< state_type > stepper;
+
         Rcpp::checkUserInterrupt();
-        double currentTimeStep = timeStep;
-        for(int integrateLoop = 0; integrateLoop < 20; integrateLoop++){
+        for(int integrateLoop = 0; integrateLoop < timeStep.n_rows; integrateLoop++){
+          double currentTimeStep = timeStep(integrateLoop);
           if(integrateFunction == "rk4"){
-            boost::numeric::odeint::runge_kutta4< state_type > stepper;
             numsteps = boost::numeric::odeint::integrate_const(stepper, individualOdeintModel, x,
                                                                startTime, endTime,
-                                                               currentTimeStep);//, push_back_state_and_time( x_vec , times ));
-          }else{
+                                                               currentTimeStep);
+          }else if(integrateFunction == "runge_kutta_dopri5"){
             numsteps = boost::numeric::odeint::integrate(individualOdeintModel, x,
                                                          startTime, endTime,
                                                          currentTimeStep);
+          }else{
+            numsteps = boost::numeric::odeint::integrate_const(stepper, individualOdeintModel, x,
+                                                               startTime, endTime,
+                                                               currentTimeStep);
+            if(!arma::is_finite(x)){
+              // try runge_kutta_dopri5 if rk4 failed
+              numsteps = boost::numeric::odeint::integrate(individualOdeintModel, x,
+                                                           startTime, endTime,
+                                                           currentTimeStep);
+            }
           }
           if(arma::is_finite(x)){break;}
-          currentTimeStep += timeStep*.1;
         }
         if(!arma::is_finite(x) &&  verbose > 0){Rcpp::warning("Non-finite value in integration.");}
         m_ = x.col(0);
@@ -785,7 +885,6 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
 
         // compute Likelihood --nonmissing
 
-        arma::uvec m2LLInd = arma::find(Rcpp::as<arma::rowvec>(uniquePersons) == selectedPerson);
         m2LL.elem(m2LLInd) += computeIndividualM2LL_C(nObservedVariables,
                   individualXTimeObservations(nonmissing),
                   mu(nonmissing), S);
@@ -810,7 +909,11 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
         P = (P + arma::trans(P))/2;
       }
     }
+    changed[personInParameterTable == selectedPerson] = false;
   }
+  psydiffModel["m2LL"] = m2LL;
+  psydiffModel["latentScores"] = latentScores;
+  psydiffModel["predictedManifest"] = predictedManifest;
 
   Rcpp::List ret  = Rcpp::List::create(Rcpp::Named("latentScores") = latentScores,
                                        Rcpp::Named("predictedManifest") = predictedManifest,
@@ -819,36 +922,80 @@ Rcpp::List fitModel(Rcpp::List psydiffModel, double alpha = 0.6, double beta = 2
 }
 
 // [[Rcpp::export]]
-Rcpp::NumericVector getGradients(Rcpp::List psydiffModel, double eps, double alpha = 0.6, double beta = 2.0, double kappa = -1.0,
-                                 double timeStep = 0.01, std::string integrateFunction = "default", breakEarly = true, int verbose = 0){
+Rcpp::NumericVector getGradients(Rcpp::List psydiffModel){
   Rcpp::List psydiffModelClone = Rcpp::clone(psydiffModel);
   Rcpp::List pars = psydiffModelClone["pars"];
   Rcpp::DataFrame parameterTable = Rcpp::as<Rcpp::DataFrame>(pars["parameterTable"]);
   Rcpp::NumericVector currentParameterValues = getParameterValues_C(psydiffModelClone);
-  Rcpp::NumericMatrix m2LLs(currentParameterValues.length() , 2);
+  arma::colvec eps = psydiffModelClone["eps"];
+  std::string direction = psydiffModelClone["direction"];
+  Rcpp::NumericMatrix m2LLs(currentParameterValues.length() , 3);
+  m2LLs.fill(0.0);
   Rcpp::NumericVector gradients(currentParameterValues.length());
   arma::colvec m2LL;
   Rcpp::List fittedModel;
+  double rightM2LL, leftM2LL;
+
+  if(!(direction == "central" || direction == "left" || direction == "right" )){
+    Rcpp::stop("Unknown direction argument. Possible are central, left and right");
+  }
+
+  if(direction == "left"){
+    fittedModel = fitModel(psydiffModelClone);
+    rightM2LL = sum(Rcpp::as<arma::colvec>(fittedModel["m2LL"]));
+  }
+  if(direction == "right"){
+    fittedModel = fitModel(psydiffModelClone);
+    leftM2LL = sum(Rcpp::as<arma::colvec>(fittedModel["m2LL"]));
+  }
 
   for(int par = 0; par < currentParameterValues.length(); par++){
 
-    currentParameterValues(par) += eps;
-    setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
-    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, breakEarly, verbose);
-    m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
-    m2LLs(par,0) = sum(m2LL);
+    // Step left
+    if(direction == "left" || direction == "central"){
+      for(int e = 0; e < eps.n_elem; e++){
+        currentParameterValues(par) -= eps(e);
+        setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+        fittedModel = fitModel(psydiffModelClone);
+        m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
+        currentParameterValues(par) += eps(e);
+        if(arma::is_finite(sum(m2LL))){
+          m2LLs(par,0) = sum(m2LL);
+          m2LLs(par,2) += eps(e);
+          break;
+        }else{
+          m2LLs(par,0) = R_NaN;
+        }
+      }
 
-    currentParameterValues(par) -= 2*eps;
-    setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
-    fittedModel = fitModel(psydiffModelClone, alpha, beta, kappa, timeStep, integrateFunction, breakEarly, verbose);
-    m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
-    m2LLs(par,1) = sum(m2LL);
+    }else{
+      m2LLs(par,0) = leftM2LL;
+    }
 
-    currentParameterValues(par) += eps;
+    // Step right
+    if(direction == "right" || direction == "central"){
+      for(int e = 0; e < eps.n_elem; e++){
+        currentParameterValues(par) += eps(e);
+        setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+        fittedModel = fitModel(psydiffModelClone);
+        m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
+        currentParameterValues(par) -= eps(e);
+        if(arma::is_finite(sum(m2LL))){
+          m2LLs(par,1) = sum(m2LL);
+          m2LLs(par,2) += eps(e);
+          break;
+        }else{
+          m2LLs(par,0) = R_NaN;
+        }
+      }
+    }else{
+      m2LLs(par,1) = rightM2LL;
+    }
 
   }
 
-  gradients = (m2LLs(Rcpp::_,0) - m2LLs(Rcpp::_,1))/(2*eps);
+  gradients = (m2LLs(Rcpp::_,1) - m2LLs(Rcpp::_,0))/m2LLs(Rcpp::_,2);
+
   gradients.names() = currentParameterValues.names();
   return(Rcpp::clone(gradients));
 }
