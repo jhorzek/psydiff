@@ -177,13 +177,13 @@
 #' y(1) = manifestmean2 + lambda2*x(0);
 #' y(2) = manifestmean3 + lambda3*x(0);
 #' "
-#'
-#' parameters <- list("driftEta1" = -.1,
-#'                    "cint" = 2,
-#'                    "lambda2" = 3,
-#'                    "lambda3" = 2,
-#'                    "manifestmean2" = 1,
-#'                    "manifestmean3" = 3)
+#' # The optimization depends highly on the starting values. The values blow are taken from ctsem
+#' parameters <- list("driftEta1" = -1.150227824,
+#'                    "cint" = 11.214338733,
+#'                    "lambda2" = 0.480098989,
+#'                    "lambda3" = 0.959200513,
+#'                    "manifestmean2" = 2.824753235,
+#'                    "manifestmean3" = 5.606085485)
 #'
 #' m0  <- fromMxMatrix(fit$mxobj$T0MEANS)
 #' A0 <- sdeModelMatrix(values = fit$mxobj$T0VARchol$result,
@@ -209,11 +209,13 @@
 #' out$m2LL
 #' getParameterValues(model)
 #'
+#' opt <- psydiffOptimx(model, method = c('Nelder-Mead', 'BFGS', 'nlm', 'nlminb'), control = list(trace = 1))
+#'
 #' startingValues <- psydiff::getParameterValues(model)
 #' adaptiveLassoWeights <- rep(1, length(startingValues))
 #' names(adaptiveLassoWeights) <- names(startingValues)
-#' regularizedParameters <- "lvar"
-#' lambda <- 0
+#' regularizedParameters <- "lambda2"
+#' lambda <- 10
 #'
 #' opt <- GIST(model = model, startingValues = startingValues, lambda = lambda,
 #'             adaptiveLassoWeights = adaptiveLassoWeights,
@@ -282,6 +284,7 @@
 #' ## Of the optimizers I tried, Nelder-Mead results in  the best fit for this model
 #' nm <- psydiffOptimNelderMead(model, control = list("trace" = 1))
 #' lines(model$predictedManifest, col = "#008080", lwd = 3) # Note: model object was changed by reference
+#' @export
 
 newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0, m0,
                        grouping = NULL, parameters, groupingvariables = NULL,

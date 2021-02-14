@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{getParameterValues}
 \alias{getParameterValues}
-\title{Get the parameter values of a psydiffModel}
+\title{getParameterValues}
 \usage{
 getParameterValues(psydiffModel)
 }

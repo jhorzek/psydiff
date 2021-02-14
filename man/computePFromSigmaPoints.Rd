@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{computePFromSigmaPoints}
 \alias{computePFromSigmaPoints}
-\title{Computes the latent covariance matrix given the sigma points and the covariance weights}
+\title{computePFromSigmaPoints}
 \usage{
 computePFromSigmaPoints(sigmaPoints, meanWeights, c)
 }

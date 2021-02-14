@@ -126,7 +126,7 @@ inline double computeIndividualM2LLChol_C(const int &nObservedVariables,
   arma::mat dist = arma::trans(residual)*arma::trans(choInv)*choInv*(residual);
   m2LL = klog2pi +
     logDetExpCov +
-    dist(0,0); // note: dist is a 1x1 matrix; extraction is necessary for the data type to be compatible
+    dist(0,0); // note: dist is a 1x1 matrix; extraction is necessary for the data type to be compatible.
   return(m2LL);
 }
 

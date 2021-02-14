@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{getAFromSigmaPoints}
 \alias{getAFromSigmaPoints}
-\title{Computes the lower triangular covariance matrix given the sigma points and the covariance weights}
+\title{getAFromSigmaPoints}
 \usage{
 getAFromSigmaPoints(sigmaPoints, meanWeights, c)
 }

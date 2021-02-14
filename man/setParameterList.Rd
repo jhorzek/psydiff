@@ -2,9 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{setParameterList}
 \alias{setParameterList}
-\title{The parameterList holds all parameters for a single person.
-With setParameterTable these parameters are changed to the
-values specified in the parameterTable for a person}
+\title{setParameterList}
 \usage{
 setParameterList(parameterTable, parameterList, person)
 }

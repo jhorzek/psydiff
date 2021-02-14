@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{getCovWeights}
 \alias{getCovWeights}
-\title{Computes the covariance weights of the unscented Kalman filter}
+\title{getCovWeights}
 \usage{
 getCovWeights(n, alpha, beta, kappa)
 }

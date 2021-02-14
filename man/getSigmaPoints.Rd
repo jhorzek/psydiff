@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{getSigmaPoints}
 \alias{getSigmaPoints}
-\title{Computes the sigma-points of the unscented Kalman filter}
+\title{getSigmaPoints}
 \usage{
 getSigmaPoints(m, A, covarianceIsRoot, c)
 }

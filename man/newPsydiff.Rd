@@ -24,8 +24,8 @@ newPsydiff(
   integrateFunction = "default",
   breakEarly = TRUE,
   verbose = 0,
-  eps = c(1e-04, 1e-05, 1e-06, 1e-07),
-  direction = "right"
+  eps = rev(c(1e-04, 1e-05, 1e-06, 1e-08)),
+  direction = "central"
 )
 }
 \arguments{
@@ -230,13 +230,13 @@ y(0) = x(0);
 y(1) = manifestmean2 + lambda2*x(0);
 y(2) = manifestmean3 + lambda3*x(0);
 "
-
-parameters <- list("driftEta1" = -.1,
-                   "cint" = 2,
-                   "lambda2" = 3,
-                   "lambda3" = 2,
-                   "manifestmean2" = 1,
-                   "manifestmean3" = 3)
+# The optimization depends highly on the starting values. The values blow are taken from ctsem
+parameters <- list("driftEta1" = -1.150227824,
+                   "cint" = 11.214338733,
+                   "lambda2" = 0.480098989,
+                   "lambda3" = 0.959200513,
+                   "manifestmean2" = 2.824753235,
+                   "manifestmean3" = 5.606085485)
 
 m0  <- fromMxMatrix(fit$mxobj$T0MEANS)
 A0 <- sdeModelMatrix(values = fit$mxobj$T0VARchol$result,
@@ -262,11 +262,13 @@ out <- fitModel(model)
 out$m2LL
 getParameterValues(model)
 
+opt <- psydiffOptimx(model, method = c('Nelder-Mead', 'BFGS', 'nlm', 'nlminb'), control = list(trace = 1))
+
 startingValues <- psydiff::getParameterValues(model)
 adaptiveLassoWeights <- rep(1, length(startingValues))
 names(adaptiveLassoWeights) <- names(startingValues)
-regularizedParameters <- "lvar"
-lambda <- 0
+regularizedParameters <- "lambda2"
+lambda <- 10
 
 opt <- GIST(model = model, startingValues = startingValues, lambda = lambda,
             adaptiveLassoWeights = adaptiveLassoWeights,
@@ -279,4 +281,60 @@ matplot(out$predictedManifest, type = "l")
 points(dat$observations[,1])
 points(dat$observations[,2])
 points(dat$observations[,3])
+
+## second order model
+set.seed(12391)
+
+library(ctsemOMX)
+DRIFT <- matrix(c(0, 1,
+                  -.005, -.04),2,2,T)
+LAMBDA <- matrix(c(1,0),1,2,T)
+MANIFESTVAR <- matrix(1)
+LATENTVAR <- matrix(c(0.001, 0,
+                      0, 0.001),2,2,T)
+ctMod <- ctModel(LAMBDA = LAMBDA, n.manifest = 1, n.latent = 2,
+                 Tpoints = 300,
+                 T0MEANS = c(0,1),
+                 T0VAR = diag(2), CINT = matrix(c(0, 1),nrow = 2),
+                 MANIFESTVAR = MANIFESTVAR, MANIFESTMEANS = 0,
+                 DRIFT = DRIFT, DIFFUSION = LATENTVAR)
+ctDat <- ctGenerate(ctMod, n.subjects = 1)
+plot(ctDat$Y1, type = "p")
+
+## Define model in psydiff
+
+manifestEquations <- "
+y = x(0);
+"
+
+latentEquations <- "
+dx(0) = x(1);
+dx(1) = cint + a*x(0) +b*x(1);
+"
+
+A0 <- diag(1,2)
+m0 <- matrix(c("0","1"), nrow = 2)
+
+Rchol <- matrix("1",1,1)
+L <- ctMod$DIFFUSION
+
+parameters <- list("cint" = 1, "a" = -.5, "b" = -.5)
+
+dat <- list("person" = ctDat$id,
+            "observations" = matrix(ctDat$Y1, ncol = 1),
+            "dt" = c(0,rep(1,length(ctDat$time)-1)))
+
+## optimize model
+
+model <- newPsydiff(dataset = dat, latentEquations = latentEquations,
+                    manifestEquations = manifestEquations,
+                    L = L, Rchol = Rchol, A0 = A0, m0 = m0,
+                    parameters = parameters)
+compileModel(model)
+
+(startingValues <- psydiff::getParameterValues(model))
+
+## Of the optimizers I tried, Nelder-Mead results in  the best fit for this model
+nm <- psydiffOptimNelderMead(model, control = list("trace" = 1))
+lines(model$predictedManifest, col = "#008080", lwd = 3) # Note: model object was changed by reference
 }

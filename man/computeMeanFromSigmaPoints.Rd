@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{computeMeanFromSigmaPoints}
 \alias{computeMeanFromSigmaPoints}
-\title{Computes the means given the sigma points and the mean weights}
+\title{computeMeanFromSigmaPoints}
 \usage{
 computeMeanFromSigmaPoints(sigmaPoints, meanWeights)
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{getWMatrix}
 \alias{getWMatrix}
-\title{Computes the weight matrix}
+\title{getWMatrix}
 \usage{
 getWMatrix(meanWeights, covWeights)
 }

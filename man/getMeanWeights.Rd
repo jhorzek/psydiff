@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{getMeanWeights}
 \alias{getMeanWeights}
-\title{Computes the mean weights of the unscented Kalman filter}
+\title{getMeanWeights}
 \usage{
 getMeanWeights(n, alpha, beta, kappa)
 }

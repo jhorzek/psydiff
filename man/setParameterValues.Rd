@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{setParameterValues}
 \alias{setParameterValues}
-\title{Change the parameter values in the parameterTable}
+\title{setParameterValues}
 \usage{
 setParameterValues(parameterTable, parameterValues, parameterLabels)
 }

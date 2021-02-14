@@ -1,6 +1,8 @@
 // Call the package's header function
 #include <psydiff.h>
 
+//' setParameterValues
+//'
 //' Change the parameter values in the parameterTable
 //'
 //' @param parameterTable parameterTable
@@ -17,6 +19,8 @@ Rcpp::DataFrame setParameterValues(Rcpp::DataFrame parameterTable,
   return(parameterTable);
 }
 
+//' getParameterValues
+//'
 //' Get the parameter values of a psydiffModel
 //'
 //' @param psydiffModel psydiffModel
@@ -26,6 +30,8 @@ Rcpp::NumericVector getParameterValues(Rcpp::List psydiffModel){
   return getParameterValues_C(psydiffModel);
 }
 
+//' setParameterList
+//'
 //' The parameterList holds all parameters for a single person.
 //' With setParameterTable these parameters are changed to the
 //' values specified in the parameterTable for a person
@@ -40,6 +46,8 @@ void setParameterList(const Rcpp::DataFrame &parameterTable, Rcpp::List &paramet
   return setParameterList_C(parameterTable, parameterList, person);
 }
 
+//' getSigmaPoints
+//'
 //' Computes the sigma-points of the unscented Kalman filter
 //'
 //' @param m colvec of latent means
@@ -54,6 +62,8 @@ arma::mat getSigmaPoints(arma::colvec m, arma::mat &A,
   return (getSigmaPoints_C(m, A, covarianceIsRoot, c));
 }
 
+//' getMeanWeights
+//'
 //' Computes the mean weights of the unscented Kalman filter
 //'
 //' @param n number of latent variables
@@ -67,6 +77,8 @@ arma::colvec getMeanWeights(const int &n, const double &alpha,
   return(getMeanWeights_C(n, alpha, beta, kappa));
 }
 
+//' getCovWeights
+//'
 //' Computes the covariance weights of the unscented Kalman filter
 //'
 //' @param n number of latent variables
@@ -80,6 +92,8 @@ arma::colvec getCovWeights(const int &n, const double &alpha,
   return(getCovWeights_C(n, alpha, beta, kappa));
 }
 
+//' getWMatrix
+//'
 //' Computes the weight matrix
 //'
 //' @param meanWeights matrix with mean weights from getMeanWeights
@@ -90,6 +104,8 @@ arma::mat getWMatrix(const arma::colvec &meanWeights, const arma::colvec &covWei
   return(getWMatrix_C(meanWeights, covWeights));
 }
 
+//' computeMeanFromSigmaPoints
+//'
 //' Computes the means given the sigma points and the mean weights
 //'
 //' @param sigmaPoints sigma points
@@ -102,6 +118,8 @@ arma::colvec computeMeanFromSigmaPoints(const arma::mat &sigmaPoints,
                                       meanWeights));
 }
 
+//' getAFromSigmaPoints
+//'
 //' Computes the lower triangular covariance matrix given the sigma points and the covariance weights
 //'
 //' @param sigmaPoints sigma points
@@ -115,6 +133,8 @@ arma::mat getAFromSigmaPoints(const arma::mat &sigmaPoints,
                                meanWeights, c));
 }
 
+//' computePFromSigmaPoints
+//'
 //' Computes the latent covariance matrix given the sigma points and the covariance weights
 //'
 //' @param sigmaPoints sigma points
@@ -130,7 +150,9 @@ arma::mat computePFromSigmaPoints(const arma::mat &sigmaPoints,
                                    c));
 }
 
-//' Computes the lower triangular matrix in Formula (33) of Särkkä (2007)
+//' getPhi
+//'
+//' Computes the lower triangular matrix in Formula (33) of Saerkkae (2007)
 //'
 //' @param squareMatrix a square matrix
 //' @return lower triangular matrix
@@ -139,6 +161,8 @@ arma::mat getPhi(const arma::mat &squareMatrix){
   return(getPhi_C(squareMatrix));
 }
 
+//' predictMu
+//'
 //' Computes the predicted manifest means
 //'
 //' @param Y_ predicted manifest values based on the sigma points
@@ -149,6 +173,8 @@ arma::mat predictMu(const arma::mat &Y_, const arma::colvec &meanWeights){
   return(predictMu_C(Y_, meanWeights));
 }
 
+//' predictS
+//'
 //' Computes the predicted manifest covariance
 //'
 //' @param Y_ predicted manifest values based on the sigma points
@@ -160,6 +186,8 @@ arma::mat predictS(const arma::mat &Y_, const arma::mat &W, const arma::mat &R){
   return(predictS_C(Y_, W, R));
 }
 
+//' predictC
+//'
 //' Computes the predicted cross-covariance between latent and manifest variables
 //'
 //' @param sigmaPoints sigma points
@@ -173,6 +201,8 @@ arma::mat predictC(const arma::mat &sigmaPoints, const arma::mat &Y_,
                     W));
 }
 
+//' computeK
+//'
 //' Computes the Kalman Gain
 //'
 //' @param C matrix with predicted cross-covariances
@@ -183,6 +213,8 @@ arma::mat computeK(const arma::mat &C, const arma::mat &S){
   return(computeK_C(C, S));
 }
 
+//' updateM
+//'
 //' Updates the latent means
 //'
 //' @param m_ colvec with predicted latent means
@@ -196,6 +228,8 @@ arma::mat updateM(const arma::colvec &m_, const arma::mat &K,
                    residual));
 }
 
+//' updateP
+//'
 //' Updates the latent covariances
 //'
 //' @param P_ matrix with predicted latent covariances
@@ -207,6 +241,8 @@ arma::mat updateP(const arma::mat &P_, const arma::mat &K, const arma::mat &S){
   return(updateP_C(P_, K, S));
 }
 
+//' computeIndividualM2LL
+//'
 //' Computes the -2 log likelihood for a single subject
 //'
 //' @param nObservedVariables number of non-NA observations for this person
@@ -225,6 +261,8 @@ double computeIndividualM2LL(const int &nObservedVariables,
                                  expectedCovariance));
 }
 
+//' cholupdate
+//'
 //' Computes the cholupdate for the square root unscented update (see Van der Merwe & Wan, 2001)
 //'
 //' @param L cholesky matrix which will be updated
@@ -237,6 +275,8 @@ arma::mat cholupdate(arma::mat L, arma::colvec x, double v, std::string directio
   return(cholupdate_C(L, x, v, direction));
 }
 
+//' qr_
+//'
 //' qr for the square root unscented update (see van der Merwe & Wan, 2001). Returns R-tilde
 //'
 //' @param X matrix which will be decomposed
