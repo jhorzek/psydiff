@@ -37,7 +37,7 @@ psydiffOptimBFGS <- function(model, ...){
 #' @import optimx
 #' @export
 #'
-psydiffOptimx <- function(model, method=c("Nelder-Mead","BFGS"), ...){
+psydiffOptimx <- function(model, method=c("Nelder-Mead","BFGS", "nlm", "nlminb"), ...){
   startingValues <- psydiff::getParameterValues(model)
 
   out <- optimx::optimx(par = startingValues, fn = psydiffFitInternal, method = method,
