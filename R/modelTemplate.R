@@ -163,7 +163,7 @@ class odeintModel{
 };
 
 // [[Rcpp::export]]
-Rcpp::List fitModel(Rcpp::List psydiffModel){
+Rcpp::List fitModel(Rcpp::List psydiffModel, bool skipUpdate = false){
 
   // extract settings
   double alpha = psydiffModel["alpha"];
@@ -359,7 +359,7 @@ Rcpp::List fitModel(Rcpp::List psydiffModel){
       // save prediction
       predictedManifest.row(min(rowInd) + timePoint) = arma::trans(mu);
 
-      if(nObservedVariables > 0){
+      if(nObservedVariables > 0 && (!skipUpdate)){
         // root of expected manifest covariance
         arma::mat srS = predictSquareRootOfS_C(Y_.rows(nonmissing), mu(nonmissing), Rchol.submat(nonmissing, nonmissing),
                                                covWeights(0), covWeights(1));
@@ -659,7 +659,7 @@ public:
 };
 
 // [[Rcpp::export]]
-Rcpp::List fitModel(Rcpp::List psydiffModel){
+Rcpp::List fitModel(Rcpp::List psydiffModel, bool skipUpdate = false){
   // extract settings
   double alpha = psydiffModel["alpha"];
   double beta = psydiffModel["beta"];
@@ -713,6 +713,7 @@ Rcpp::List fitModel(Rcpp::List psydiffModel){
   // initialize Unscented matrices
   int numsteps, nObservedVariables, timePoints;
   arma::mat individualObservations, // data for one individual
+  P_, // latent covariance
   Y_(odeintparam.nmanifest, 2*odeintparam.nlatent+1), // predicted observations from sigma points
   A(odeintparam.nlatent, odeintparam.nlatent), // root of (updated) latent covariance
   S(odeintparam.nmanifest,odeintparam.nmanifest), // predicted observed covariance
@@ -768,7 +769,7 @@ Rcpp::List fitModel(Rcpp::List psydiffModel){
 
     // extract initial parameters
     m = Rcpp::as<arma::colvec>(parameterList["m0"]);
-    P = Rcpp::as<arma::mat>(parameterList["A0"])*arma::trans(Rcpp::as<arma::mat>(parameterList["A0"]));
+    arma::mat P = Rcpp::as<arma::mat>(parameterList["A0"])*arma::trans(Rcpp::as<arma::mat>(parameterList["A0"]));
     arma::mat Rchol = odeintparam.parameterList["Rchol"];
     arma::mat R = Rchol*arma::trans(Rchol); // manifest covariance
 
@@ -857,7 +858,7 @@ Rcpp::List fitModel(Rcpp::List psydiffModel){
       // save prediction
       predictedManifest.row(min(rowInd) + timePoint) = arma::trans(mu);
 
-      if(nObservedVariables > 0){
+      if(nObservedVariables > 0 && (!skipUpdate)){
         // expected manifest covariance
         S = predictS_C(Y_.rows(nonmissing), odeintparam.W, R.submat(nonmissing, nonmissing));
 

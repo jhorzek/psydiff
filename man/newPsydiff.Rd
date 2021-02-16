@@ -25,7 +25,8 @@ newPsydiff(
   breakEarly = TRUE,
   verbose = 0,
   eps = rev(c(1e-04, 1e-05, 1e-06, 1e-08)),
-  direction = "central"
+  direction = "central",
+  sanityChecks = TRUE
 )
 }
 \arguments{
@@ -70,6 +71,8 @@ newPsydiff(
 \item{eps}{controls the step size in the numerical approximation of the gradients. You should pass a vector, as this will allow psydiff to try computing the gradients for an alternative step size if one of them fails}
 
 \item{direction}{direction of the steps for gradient approximation. Possible are right, left, and central.}
+
+\item{sanityChecks}{boolean: Should the parameters be checked and adjusted if they might cause problems?}
 }
 \value{
 psydiffModel that can be compiled with compileModel()

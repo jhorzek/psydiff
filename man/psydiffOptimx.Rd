@@ -4,7 +4,7 @@
 \alias{psydiffOptimx}
 \title{psydiffOptimx}
 \usage{
-psydiffOptimx(model, method = c("Nelder-Mead", "BFGS"), ...)
+psydiffOptimx(model, method = c("Nelder-Mead", "BFGS", "nlm", "nlminb"), ...)
 }
 \arguments{
 \item{model}{psydiff model object (must have been compiled before calling psydiffOptimx)}

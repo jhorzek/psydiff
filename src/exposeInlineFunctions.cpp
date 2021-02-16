@@ -285,3 +285,14 @@ arma::mat cholupdate(arma::mat L, arma::colvec x, double v, std::string directio
 arma::mat qr_(arma::mat X){
   return(qr_C(X));
 }
+
+//' clonePsydiffModel
+//'
+//' additional function to deep-copy a psydiffModel
+//' @param model psydiff model
+//' @return clone of the model
+// [[Rcpp::export]]
+Rcpp::List clonePsydiffModel(Rcpp::List model){
+  Rcpp::List modelClone = Rcpp::clone(model);
+  return(modelClone);
+}

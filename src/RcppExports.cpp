@@ -261,6 +261,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// clonePsydiffModel
+Rcpp::List clonePsydiffModel(Rcpp::List model);
+RcppExport SEXP _psydiff_clonePsydiffModel(SEXP modelSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type model(modelSEXP);
+    rcpp_result_gen = Rcpp::wrap(clonePsydiffModel(model));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_psydiff_setParameterValues", (DL_FUNC) &_psydiff_setParameterValues, 3},
@@ -283,6 +294,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_psydiff_computeIndividualM2LL", (DL_FUNC) &_psydiff_computeIndividualM2LL, 4},
     {"_psydiff_cholupdate", (DL_FUNC) &_psydiff_cholupdate, 4},
     {"_psydiff_qr_", (DL_FUNC) &_psydiff_qr_, 1},
+    {"_psydiff_clonePsydiffModel", (DL_FUNC) &_psydiff_clonePsydiffModel, 1},
     {NULL, NULL, 0}
 };
 

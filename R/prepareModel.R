@@ -21,6 +21,7 @@
 #' @param verbose Values > 0 will print additional information
 #' @param eps controls the step size in the numerical approximation of the gradients. You should pass a vector, as this will allow psydiff to try computing the gradients for an alternative step size if one of them fails
 #' @param direction direction of the steps for gradient approximation. Possible are right, left, and central.
+#' @param sanityChecks boolean: Should the parameters be checked and adjusted if they might cause problems?
 #'
 #' @return psydiffModel that can be compiled with compileModel()
 #'
@@ -292,7 +293,8 @@ newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0
                        # settings for the integration
                        srUpdate = TRUE, alpha = .2, beta = 2.0, kappa = 0.0,
                        timeStep = NULL, integrateFunction = "default", breakEarly = TRUE, verbose = 0,
-                       eps = rev(c(1e-4, 1e-5, 1e-6, 1e-8)), direction = "central"){
+                       eps = rev(c(1e-4, 1e-5, 1e-6, 1e-8)), direction = "central",
+                       sanityChecks = TRUE){
   nlatent <- ncol(L)
   nmanifest <- ncol(Rchol)
 
@@ -344,6 +346,21 @@ newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0
   parTabAndStart <- extractParameters(elementNames = elementNames, parameters = parameters)
   parameterTableInit <- parTabAndStart$parameterTableInit
   parameterList <- parTabAndStart$startValues
+  if(sanityChecks){
+    if(any(abs(diag(parameterList$Rchol)) < .01)){
+      warning("Setting the diagonal elements of Rchol to very small values will often result in errors. The small values will be replaced by .01. Set sanityChecks = FALSE to prevent this.")
+      parameterList$Rchol[(abs(parameterList$Rchol) < .01) & diag(nrow(parameterList$Rchol))] <- .01
+    }
+    if(any(abs(diag(parameterList$L)) < .01)){
+      warning("Setting the diagonal elements of L to very small values will often result in errors. The small values will be replaced by .01. Set sanityChecks = FALSE to prevent this.")
+      parameterList$L[(abs(parameterList$L) < .01) & diag(nrow(parameterList$L))] <- .01
+    }
+    if(any(abs(diag(parameterList$A0)) < .01)){
+      warning("Setting the diagonal elements of A0 to very small values will often result in errors. The small values will be replaced by .01. Set sanityChecks = FALSE to prevent this.")
+      parameterList$A0[(abs(parameterList$A0) < .01) & diag(nrow(parameterList$A0))] <- .01
+    }
+  }
+
 
   parameterTable <- do.call("rbind", replicate(length(unique(persons)), parameterTableInit, simplify = FALSE))
   parameterTable$person <- rep(unique(persons), each = nrow(parameterTableInit))
@@ -584,6 +601,8 @@ prepareEquations <- function(equations, parameters){
       }else{
         stop("Error in prepareEquations: targetClass unknown.")
       }
+      # remove element from target to prevent multiple entries
+      targets <- targets[!targets == elementInEquation]
     }
   }
   equationsCombined <- paste0(equationsCombined, "

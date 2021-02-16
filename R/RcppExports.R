@@ -238,3 +238,12 @@ qr_ <- function(X) {
     .Call(`_psydiff_qr_`, X)
 }
 
+#' clonePsydiffModel
+#'
+#' additional function to deep-copy a psydiffModel
+#' @param model psydiff model
+#' @return clone of the model
+clonePsydiffModel <- function(model) {
+    .Call(`_psydiff_clonePsydiffModel`, model)
+}
+
