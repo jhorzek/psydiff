@@ -1,19 +1,22 @@
-inspectModel <- function(model){
-
-  StartSettings <- model
-  filename <- tempfile(pattern = "StartSettings", tmpdir = tempdir(), fileext = ".RData")
-  save(StartSettings, file = filename)
-  parameters <- getParameterValues(model)
+inspectModel <- function(model, runShiny = TRUE){
+  modelClone <- clonePsydiffModel(model)
+  filename <- tempfile(pattern = "modelClone", tmpdir = tempdir(), fileext = ".RData")
+  save(modelClone, file = filename)
+  parameters <- getParameterValues(modelClone)
+  parameters <- parameters[sort(names(parameters))]
 
   UI <- paste0('
    library(shiny)
+   library(ggplot2)
+   library(gridExtra)
    library(psydiff)
    load("', filename, '")
-   parameters <- getParameterValues(model)
+   parameters <- getParameterValues(modelClone)
 
    ui <- fluidPage(
   titlePanel("Psydiff model inspection"),
   sidebarPanel(
+  actionButton("close", "Close and return values"),
   ')
 
   SERVERHEAD <- '
@@ -51,26 +54,57 @@ inspectModel <- function(model){
 SERVER <- paste0(SERVERHEAD,'
 
 output$simPaths <- renderPlot({
-  parameterValues <- getParameterValues(model)
+  parameterValues <- getParameterValues(modelClone)
 ', SERVER, '
-    setParameterValues(parameterTable = model$pars$parameterTable,
+    setParameterValues(parameterTable = modelClone$pars$parameterTable,
                        parameterValues = parameterValues,
                        parameterLabels = names(parameterValues))
-    simDat <- simulateData(model)
-    matplot(simDat$predictedManifest, type = "l")
-    points(simDat$simulatedObservation)
+    simDat <- simulateData(modelClone)
+predictedManifest <- simDat$predictedManifest
+observedManifest <- modelClone$data$observations
+colnames(predictedManifest) <- paste0("Y", seq_len(modelClone$nmanifest))
+colnames(observedManifest) <- paste0("Y", seq_len(modelClone$nmanifest))
+
+nrowsOfPlot <- floor(modelClone$nmanifest/2) +1
+par(mfrow = c(nrowsOfPlot, 2))
+
+times <- c()
+for(p in unique(modelClone$data$person)){
+  times <- c(times, cumsum(modelClone$data$dt[modelClone$data$person == p]))
+}
+
+df <- data.frame("person" = as.factor(modelClone$data$person), "times" = times,  predictedManifest)
+obs <- data.frame("person" = as.factor(modelClone$data$person), "times" = times,  observedManifest)
+')
+plots <- paste0('plot', seq_len(modelClone$nmanifest), ' <- ggplot(data = df, aes(x=times, y= Y', seq_len(modelClone$nmanifest),', group=person, color=person)) +
+           geom_line()+
+    geom_point(data = obs,
+               mapping = aes(x = times, y = Y', seq_len(modelClone$nmanifest),', color = person))', collapse = " \n")
+arrangePlots <- paste0('
+    gr = grid.arrange(',paste0('plot', seq_len(modelClone$nmanifest), collapse = ", "),', ncol= ',ifelse(modelClone$nmanifest>1,2,1),')
+                       print(gr)')
+endSERVER <- '
+  });
+  observe({
+      if(input$close > 0){
+        stopApp(getParameterValues(modelClone))
+      }
   })
   }
 shinyApp(ui, server)
-')
-combined <- paste0(UI, SERVER)
+'
+combined <- paste0(UI, SERVER, plots, arrangePlots, endSERVER)
 
-filename <- tempfile(pattern = "psydiff_Shiny", tmpdir = tempdir(), fileext = ".R")
-fileConn<-file(filename)
-writeLines(combined, fileConn)
-close(fileConn)
+if(runShiny){
+  filename <- tempfile(pattern = "psydiff_Shiny", tmpdir = tempdir(), fileext = ".R")
+  fileConn<-file(filename)
+  writeLines(combined, fileConn)
+  close(fileConn)
 
-runApp(filename)
-return(combined)
+  retValues <- shiny::runApp(filename)
+  return(retValues)
+}else{
+  return(combined)
+}
 }
 

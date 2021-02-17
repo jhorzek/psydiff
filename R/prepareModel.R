@@ -111,32 +111,24 @@
 #' # compile model
 #' compileModel(model)
 #'
+#'
 #' # fit model
 #' out <- fitModel(psydiffModel = model)
 #' sum(out$m2LL)
 #'
 #' # change parameter values
-#' parval <- psydiff::getParameterValues(model)+1
+#' # inspect the model
+#' newValues <- inspectModel(model)
 #' psydiff::setParameterValues(parameterTable = model$pars$parameterTable,
-#'                             parameterValues = parval, parameterLabels = names(parval))
+#'                             parameterValues = newValues, parameterLabels = names(newValues))
 #'
 #' # fit model
 #' out <- fitModel(psydiffModel = model)
 #' sum(out$m2LL)
 #'
-#' ## optimize model with optim
-#' fitfun <- function(parval, model){
-#'   psydiff::setParameterValues(parameterTable = model$pars$parameterTable,
-#'                               parameterValues = parval, parameterLabels = names(parval))
-#'   out <- try(fitModel(psydiffModel = model))
-#'   if(any(class(out) == "try-error")){
-#'     return(NA)
-#'   }
-#'   return(sum(out$m2LL))
-#' }
+#' ## optimize model with optimx
 #'
-#' optimized <- optim(par = parval, fn = fitfun, gr = NULL, model, method = "BFGS")
-#' optimized$value
+#' optimized <- psydiffOptimx(model)
 #'
 #' ## additional grouping
 #' # we will make the initial mean mm_Y1 person specific and mm_Y2 depend on a grouping parameter
@@ -153,9 +145,7 @@
 #'                   parameters = parameters, groupingvariables = groupinglist, compile = TRUE)
 #' parval <- psydiff::getParameterValues(model)
 #'
-#' optimized <- optim(par = parval, fn = fitfun, gr = NULL, model, method = "BFGS")
-#' optimized$par
-#' optimized$value
+#' optimized <- psydiffOptimx(model, control = list(trace = 1))
 #'
 #' ## The following example is taken from ctsem and also demonstrates the use of the GIST optimizer
 #' library(ctsemOMX)

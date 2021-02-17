@@ -80,7 +80,7 @@ simulateData <- function(model){
   # add noise to observations
   simulatedObservation <- f$predictedManifest
   for(ro in seq_len(nrow(simulatedObservation))){
-    simulatedObservation[ro, ] <- simulatedObservation[ro, ] + mvtnorm::rmvnorm(n = model$nmanifest,
+    simulatedObservation[ro, ] <- simulatedObservation[ro, ] + mvtnorm::rmvnorm(n = 1,
                      mean = rep(0, model$nmanifest),
                      sigma = R)
   }
