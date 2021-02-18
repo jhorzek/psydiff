@@ -46,6 +46,29 @@ psydiffOptimx <- function(model, method=c("Nelder-Mead","BFGS", "nlm", "nlminb")
   return(out)
 }
 
+#' extractOptimx
+#'
+#' sets the model parameters to the best values obtained from optimx
+#' @param model psydiff model
+#' @param opt result from calling psydiffOptimx
+#' @export
+#'
+extractOptimx <- function(model, opt){
+  if(!any(class(opt) == "optimx")){
+    stop("opt has to be of class optimx")
+  }
+  pars <- getParameterValues(model)
+  values <- opt$value
+  bestValue <- which(values == min(values))[1] # if multiple optimizers find the same optimum, the first will be used
+  optimizer <- rownames(opt)[bestValue]
+  optimizedPars <- data.matrix(opt[optimizer,names(pars)])
+  setParameterValues(parameterTable = model$pars$parameterTable,
+                     parameterValues = optimizedPars,
+                     parameterLabels = colnames(optimizedPars))
+  message(paste0("The lowest minimum of ", min(values), " was found with ", optimizer, ". Returning the model with updated parameter values. WARNING: The model has not been fitted yet! Use fitModel on the returned object."))
+  return(model)
+}
+
 #' psydiffOptimxMultiStart
 #'
 #' wrapper for optimx optimization
@@ -108,4 +131,49 @@ psydiffFitInternal <- function(pars, parsnames, model){
     return(99999999999)
   }
   return(sum(fit$m2LL))
+}
+
+#' getStandardErrors
+#'
+#' compute standard errors for a fitted model using the diagonal elements in the inverse of the hessian approximation from optimHess
+#' @param model psydiff model
+#' @param ... additional arguments to pass to optimHess
+#' @return vector with standard errors
+#' @export
+getStandardErrors <- function(model, ...){
+  pars <- getParameterValues(model)
+  hess <- optimHess(fn = psydiffFitInternal, par = pars,
+                            model = model,
+                            parsnames = names(pars),
+                    ...)
+  # Note: We are minimizing the negative log likelihood.
+  # The Hessian is therefore the "observed Fisher Information"
+  # and it's inverse is the covariance matrix of the parameters
+  standardErrors <- sqrt(diag(solve(hess)))
+  names(standardErrors) <- names(pars)
+  return(standardErrors)
+}
+
+#' getStandardErrorsHW
+#'
+#' compute Huber White robust standard errors for a fitted model
+#' @param model psydiff model
+#' @param ... additional arguments to pass to optimHess
+#' @return vector with standard errors
+#' @export
+getStandardErrorsHW <- function(model, ...){
+  warning("Huber White Standard Errors are not working correctly!")
+  pars <- getParameterValues(model)
+  grad <- getGradients(model)
+  hess <- optimHess(fn = psydiffFitInternal, par = pars,
+                    model = model,
+                    parsnames = names(pars),
+                    ...)
+  # Note: We are minimizing the negative log likelihood.
+  # The Hessian is therefore the "observed Fisher Information"
+  InformationInverse <- solve(hess)
+  covMat <- InformationInverse%*%matrix(grad, ncol = 1)%*%matrix(grad, nrow = 1)%*%InformationInverse
+  standardErrorsHW <- sqrt(diag(covMat))
+  names(standardErrorsHW) <- names(pars)
+  return(standardErrorsHW)
 }
