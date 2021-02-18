@@ -147,9 +147,9 @@ getStandardErrors <- function(model, ...){
                             parsnames = names(pars),
                     ...)
   # Note: We are minimizing the negative log likelihood.
-  # The Hessian is therefore the "observed Fisher Information"
-  # and it's inverse is the covariance matrix of the parameters
-  standardErrors <- sqrt(diag(solve(hess)))
+  # The Hessian is therefore .5*"observed Fisher Information"
+  # and 2 times it's inverse is the covariance matrix of the parameters
+  standardErrors <- sqrt(diag(2*solve(hess)))
   names(standardErrors) <- names(pars)
   return(standardErrors)
 }
@@ -169,9 +169,9 @@ getStandardErrorsHW <- function(model, ...){
                     model = model,
                     parsnames = names(pars),
                     ...)
-  # Note: We are minimizing the negative log likelihood.
-  # The Hessian is therefore the "observed Fisher Information"
-  InformationInverse <- solve(hess)
+  # Note: We are minimizing the -2 log likelihood.
+  # The Hessian is therefore the .5*"observed Fisher Information"
+  InformationInverse <- 2*solve(hess)
   covMat <- InformationInverse%*%matrix(grad, ncol = 1)%*%matrix(grad, nrow = 1)%*%InformationInverse
   standardErrorsHW <- sqrt(diag(covMat))
   names(standardErrorsHW) <- names(pars)
