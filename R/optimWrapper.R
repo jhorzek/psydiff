@@ -172,7 +172,7 @@ getStandardErrorsHW <- function(model, ...){
   # Note: We are minimizing the -2 log likelihood.
   # The Hessian is therefore the .5*"observed Fisher Information"
   InformationInverse <- 2*solve(hess)
-  covMat <- InformationInverse%*%matrix(grad, ncol = 1)%*%matrix(grad, nrow = 1)%*%InformationInverse
+  covMat <- InformationInverse%*%matrix(-2*grad, ncol = 1)%*%matrix(-2*grad, nrow = 1)%*%InformationInverse
   standardErrorsHW <- sqrt(diag(covMat))
   names(standardErrorsHW) <- names(pars)
   return(standardErrorsHW)

@@ -69,7 +69,7 @@ getDataTemplate <- function(nSubjects, nVariables, nTimpoints, dts){
 #' @export
 simulateData <- function(model){
 
-  modelClone <- clonePsydiffModel(model)
+  modelClone <- model
   modelClone$pars$parameterTable$changed <- T # force refit for all individuals
   # generate predictions
   f <- fitModel(modelClone, skipUpdate = TRUE)

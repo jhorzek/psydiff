@@ -17,6 +17,7 @@ inspectModel <- function(model, runShiny = TRUE){
   titlePanel("Psydiff model inspection"),
   sidebarPanel(
   actionButton("close", "Close and return values"),
+  checkboxInput("simulateOnly", "Simulate only", value = FALSE, width = NULL),
   ')
 
   SERVERHEAD <- '
@@ -55,12 +56,20 @@ SERVER <- paste0(SERVERHEAD,'
 
 output$simPaths <- renderPlot({
   parameterValues <- getParameterValues(modelClone)
+  simulateOnly <- as.logical(input$simulateOnly)
 ', SERVER, '
     setParameterValues(parameterTable = modelClone$pars$parameterTable,
                        parameterValues = parameterValues,
                        parameterLabels = names(parameterValues))
-    simDat <- simulateData(modelClone)
-predictedManifest <- simDat$predictedManifest
+    if(simulateOnly){
+      simDat <- simulateData(modelClone)
+      predictedManifest <- simDat$predictedManifest
+      plotTitle <- "Simulated paths for observed data"
+    }else{
+      f <- fitModel(modelClone)
+      predictedManifest <- f$predictedManifest
+      plotTitle <- paste0("Predicted observations; m2LL = ", sum(f$m2LL))
+    }
 observedManifest <- modelClone$data$observations
 colnames(predictedManifest) <- paste0("Y", seq_len(modelClone$nmanifest))
 colnames(observedManifest) <- paste0("Y", seq_len(modelClone$nmanifest))
@@ -79,7 +88,8 @@ obs <- data.frame("person" = as.factor(modelClone$data$person), "times" = times,
 plots <- paste0('plot', seq_len(modelClone$nmanifest), ' <- ggplot(data = df, aes(x=times, y= Y', seq_len(modelClone$nmanifest),', group=person, color=person)) +
            geom_line()+
     geom_point(data = obs,
-               mapping = aes(x = times, y = Y', seq_len(modelClone$nmanifest),', color = person))', collapse = " \n")
+               mapping = aes(x = times, y = Y', seq_len(modelClone$nmanifest),', color = person)) +
+                ggtitle(plotTitle)', collapse = " \n")
 arrangePlots <- paste0('
     gr = grid.arrange(',paste0('plot', seq_len(modelClone$nmanifest), collapse = ", "),', ncol= ',ifelse(modelClone$nmanifest>1,2,1),')
                        print(gr)')
