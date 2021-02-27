@@ -13,5 +13,5 @@ qr_(X)
 matrix: R-tilde
 }
 \description{
-qr for the square root unscented update (see van der Merwe & Wan, 2001). Returns R-tilde
+qr for the square root unscented update (see van der Merwe and Wan, 2001). Returns R-tilde
 }

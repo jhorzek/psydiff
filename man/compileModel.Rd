@@ -10,5 +10,5 @@ compileModel(psydiffModel)
 \item{psydiffModel}{model from newPsydiff}
 }
 \description{
-compile the models from newPsydiff
+compile the model from newPsydiff
 }

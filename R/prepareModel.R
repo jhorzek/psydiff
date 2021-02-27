@@ -321,11 +321,22 @@ newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0
   persons <- dataset$person
 
   ## Define matrices, vectors, etc.
+  ## redefine A0, L, and Rchol
+  A0Sep <- sepNameFromValue(as.matrix(A0))
+  LSep <- sepNameFromValue(as.matrix(L))
+  RcholSep <- sepNameFromValue(as.matrix(Rchol))
+
+
+  # build log-Cholesky
+  A0LogChol <- chol2LogChol(matValues = A0Sep$values, matLabels = A0Sep$labels, sanityChecks = sanityChecks, matrixName = "A0")
+  LLogChol <- chol2LogChol(matValues = LSep$values, matLabels = LSep$labels, sanityChecks = sanityChecks, matrixName = "L")
+  RLogChol <- chol2LogChol(matValues = RcholSep$values, matLabels = RcholSep$labels, sanityChecks = sanityChecks, matrixName = "Rchol")
+
   ## Element refers to containers in which the parameters are stored
-  parameters$L <- L
-  parameters$A0 <- A0
+  parameters$A0LogChol <- A0LogChol
+  parameters$LLogChol <- LLogChol
+  parameters$RLogChol <- RLogChol
   parameters$m0 <- m0
-  parameters$Rchol <- Rchol
 
   elementNames <- names(parameters)
 
@@ -336,21 +347,6 @@ newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0
   parTabAndStart <- extractParameters(elementNames = elementNames, parameters = parameters)
   parameterTableInit <- parTabAndStart$parameterTableInit
   parameterList <- parTabAndStart$startValues
-  if(sanityChecks){
-    if(any(abs(diag(parameterList$Rchol)) < .01)){
-      warning("Setting the diagonal elements of Rchol to very small values will often result in errors. The small values will be replaced by .01. Set sanityChecks = FALSE to prevent this.")
-      parameterList$Rchol[(abs(parameterList$Rchol) < .01) & diag(nrow(parameterList$Rchol))] <- .01
-    }
-    if(any(abs(diag(parameterList$L)) < .01)){
-      warning("Setting the diagonal elements of L to very small values will often result in errors. The small values will be replaced by .01. Set sanityChecks = FALSE to prevent this.")
-      parameterList$L[(abs(parameterList$L) < .01) & diag(nrow(parameterList$L))] <- .01
-    }
-    if(any(abs(diag(parameterList$A0)) < .01)){
-      warning("Setting the diagonal elements of A0 to very small values will often result in errors. The small values will be replaced by .01. Set sanityChecks = FALSE to prevent this.")
-      parameterList$A0[(abs(parameterList$A0) < .01) & diag(nrow(parameterList$A0))] <- .01
-    }
-  }
-
 
   parameterTable <- do.call("rbind", replicate(length(unique(persons)), parameterTableInit, simplify = FALSE))
   parameterTable$person <- rep(unique(persons), each = nrow(parameterTableInit))
@@ -680,3 +676,48 @@ sdeModelMatrix <- function(values, labels){
   return(values)
 
 }
+
+sepNameFromValue <- function(mat){
+  if(is.numeric(mat)){
+    return(list("labels" = NULL, "values" = mat))
+  }
+  labelMat <- matrix("", ncol = ncol(mat), nrow = nrow(mat))
+  valueMat <- matrix(NA, ncol = ncol(mat), nrow = nrow(mat))
+  for(i in seq_len(nrow(mat))){
+    for(ii in seq_len(ncol(mat))){
+      if(grepl("=", mat[i,ii])){
+        splitted <- stringr::str_split(mat[i,ii], "=")[[1]]
+        labelMat[i,ii] <- stringr::str_remove_all(splitted[1], " ")
+        valueMat[i,ii] <- as.numeric(splitted[2])
+      }else{
+        valueMat[i,ii] <- as.numeric(mat[i,ii])
+      }
+    }
+  }
+  return(list("labels" = labelMat, "values" = valueMat))
+}
+
+chol2LogChol <- function(matValues, matLabels, sanityChecks, matrixName = ""){
+  if(sanityChecks){
+    if(any(abs(diag(matValues)) < .01)){
+      warning(paste0("Setting the diagonal elements of ", matrixName, " to very small values will often result in errors. The small values will be replaced by .01. Set sanityChecks = FALSE to prevent this."))
+      matValues[(abs(matValues) < .01) & diag(nrow(matValues))] <- .01
+    }
+  }
+  diag(matValues) <- log(diag(matValues))
+  diagLabels <- diag(matLabels)
+  diag(matLabels)[!diagLabels == ""] <- paste0("ln", diagLabels[!diagLabels == ""])
+
+  combinedMat <- matLabels
+  for(i in seq_len(nrow(combinedMat))){
+    for(ii in seq_len(ncol(combinedMat))){
+      if(combinedMat[i,ii] == ""){
+        combinedMat[i,ii] <- matValues[i,ii]
+      }else{
+        combinedMat[i,ii] <- paste0(combinedMat[i,ii], " = ", matValues[i,ii])
+      }
+    }
+  }
+  return(combinedMat)
+}
+

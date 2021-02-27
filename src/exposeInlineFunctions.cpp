@@ -263,11 +263,11 @@ double computeIndividualM2LL(const int &nObservedVariables,
 
 //' cholupdate
 //'
-//' Computes the cholupdate for the square root unscented update (see Van der Merwe & Wan, 2001)
+//' Computes the cholupdate for the square root unscented update (see Van der Merwe and Wan, 2001)
 //'
 //' @param L cholesky matrix which will be updated
 //' @param x colvec which will be used for the update
-//' @param v double: additional factor for cholupdate, see Van der Merwe & Wan, 2001
+//' @param v double: additional factor for cholupdate, see Van der Merwe and Wan, 2001
 //' @param direction string: either downdate or update
 //' @return matrix: downdated / updated matrix
 // [[Rcpp::export]]
@@ -277,13 +277,23 @@ arma::mat cholupdate(arma::mat L, arma::colvec x, double v, std::string directio
 
 //' qr_
 //'
-//' qr for the square root unscented update (see van der Merwe & Wan, 2001). Returns R-tilde
+//' qr for the square root unscented update (see van der Merwe and Wan, 2001). Returns R-tilde
 //'
 //' @param X matrix which will be decomposed
 //' @return matrix: R-tilde
 // [[Rcpp::export]]
 arma::mat qr_(arma::mat X){
   return(qr_C(X));
+}
+
+//' logChol2Chol
+//'
+//' transforms the log-Cholesky decomposition of a matrix to the Cholesky (see Pinheiro, J. C., and Bates, D. M. (1996). Unconstrained parametrizations for variance-covariance matrices. Statistics and Computing, 6(3), 289–296)
+//' @param logChol log-Cholesky decomposition of a matrix
+//' @return Cholesky decomposition of the matrix
+// [[Rcpp::export]]
+arma::mat logChol2Chol(arma::mat logChol){
+  return logChol2Chol_C(logChol);
 }
 
 //' clonePsydiffModel
@@ -296,3 +306,4 @@ Rcpp::List clonePsydiffModel(Rcpp::List model){
   Rcpp::List modelClone = Rcpp::clone(model);
   return(modelClone);
 }
+

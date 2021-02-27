@@ -4,7 +4,12 @@
 \alias{psydiffOptimBFGS}
 \title{psydiffOptimBFGS}
 \usage{
-psydiffOptimBFGS(model, ...)
+psydiffOptimBFGS(
+  model,
+  fn = psydiffFitInternal,
+  gr = psydiffGradientsInternal,
+  ...
+)
 }
 \arguments{
 \item{model}{psydiff model object (must have been compiled before calling psydiffOptimBFGS)}

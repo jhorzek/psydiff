@@ -11,7 +11,7 @@ cholupdate(L, x, v, direction)
 
 \item{x}{colvec which will be used for the update}
 
-\item{v}{double: additional factor for cholupdate, see Van der Merwe & Wan, 2001}
+\item{v}{double: additional factor for cholupdate, see Van der Merwe and Wan, 2001}
 
 \item{direction}{string: either downdate or update}
 }
@@ -19,5 +19,5 @@ cholupdate(L, x, v, direction)
 matrix: downdated / updated matrix
 }
 \description{
-Computes the cholupdate for the square root unscented update (see Van der Merwe & Wan, 2001)
+Computes the cholupdate for the square root unscented update (see Van der Merwe and Wan, 2001)
 }

@@ -197,11 +197,15 @@ inline arma::mat predictSquareRootOfS_C(arma::mat Y_, arma::colvec mu, arma::mat
   return(arma::trimatl(srS));
 }
 
-
 inline arma::mat computeK_SR_C(const arma::mat &C, const arma::mat &srS){
   arma::mat srSInv = arma::inv(arma::trimatl(srS));
   return C * arma::trans(srSInv)*srSInv;
 }
 
+inline arma::mat logChol2Chol_C(const arma::mat &logChol){
+  arma::mat cholMat = logChol;
+  cholMat.diag() = arma::exp(cholMat.diag());
+  return cholMat;
+}
 
 #endif

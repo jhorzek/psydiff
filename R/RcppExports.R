@@ -217,11 +217,11 @@ computeIndividualM2LL <- function(nObservedVariables, rawData, expectedMeans, ex
 
 #' cholupdate
 #'
-#' Computes the cholupdate for the square root unscented update (see Van der Merwe & Wan, 2001)
+#' Computes the cholupdate for the square root unscented update (see Van der Merwe and Wan, 2001)
 #'
 #' @param L cholesky matrix which will be updated
 #' @param x colvec which will be used for the update
-#' @param v double: additional factor for cholupdate, see Van der Merwe & Wan, 2001
+#' @param v double: additional factor for cholupdate, see Van der Merwe and Wan, 2001
 #' @param direction string: either downdate or update
 #' @return matrix: downdated / updated matrix
 cholupdate <- function(L, x, v, direction) {
@@ -230,12 +230,21 @@ cholupdate <- function(L, x, v, direction) {
 
 #' qr_
 #'
-#' qr for the square root unscented update (see van der Merwe & Wan, 2001). Returns R-tilde
+#' qr for the square root unscented update (see van der Merwe and Wan, 2001). Returns R-tilde
 #'
 #' @param X matrix which will be decomposed
 #' @return matrix: R-tilde
 qr_ <- function(X) {
     .Call(`_psydiff_qr_`, X)
+}
+
+#' logChol2Chol
+#'
+#' transforms the log-Cholesky decomposition of a matrix to the Cholesky (see Pinheiro, J. C., and Bates, D. M. (1996). Unconstrained parametrizations for variance-covariance matrices. Statistics and Computing, 6(3), 289–296)
+#' @param logChol log-Cholesky decomposition of a matrix
+#' @return Cholesky decomposition of the matrix
+logChol2Chol <- function(logChol) {
+    .Call(`_psydiff_logChol2Chol`, logChol)
 }
 
 #' clonePsydiffModel

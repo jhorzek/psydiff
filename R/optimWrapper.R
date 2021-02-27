@@ -38,7 +38,7 @@ psydiffOptimBFGS <- function(model, fn = psydiffFitInternal, gr = psydiffGradien
 #' @import optimx
 #' @export
 #'
-psydiffOptimx <- function(model, method=c("Nelder-Mead","BFGS", "nlm", "nlminb"), fn = psydiffFitInternal, gr = psydiffGradientsInternal,...){
+psydiffOptimx <- function(model, method=c("Nelder-Mead","BFGS", "nlm", "nlminb"), fn = psydiffFitInternal, gr = NULL,...){
   startingValues <- psydiff::getParameterValues(model)
 
   out <- optimx::optimx(par = startingValues, fn = fn, gr = gr, method = method,
@@ -184,9 +184,9 @@ psydiffGradientsInternal <- function(pars, parsnames, model){
   }
   if(anyNA(gradients)){
     gradients[is.na(gradients)] <- 1
-    return(gradients)
+    return(gradients[parsnames])
   }
-  return(gradients)
+  return(gradients[parsnames])
 }
 
 #' getStandardErrors
