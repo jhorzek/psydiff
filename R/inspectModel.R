@@ -1,4 +1,4 @@
-inspectModel <- function(model, runShiny = TRUE){
+inspectModel <- function(model, plotHeight = 300, runShiny = TRUE){
   modelClone <- clonePsydiffModel(model)
   filename <- tempfile(pattern = "modelClone", tmpdir = tempdir(), fileext = ".RData")
   save(modelClone, file = filename)
@@ -91,10 +91,10 @@ plots <- paste0('plot', seq_len(modelClone$nmanifest), ' <- ggplot(data = df, ae
                mapping = aes(x = times, y = Y', seq_len(modelClone$nmanifest),', color = person)) +
                 ggtitle(plotTitle)', collapse = " \n")
 arrangePlots <- paste0('
-    gr = grid.arrange(',paste0('plot', seq_len(modelClone$nmanifest), collapse = ", "),', ncol= ',ifelse(modelClone$nmanifest>1,2,1),')
-                       print(gr)')
-endSERVER <- '
-  });
+    gr = grid.arrange(',paste0('plot', seq_len(modelClone$nmanifest), collapse = ", "),', ncol= ',1,')
+                       ')
+endSERVER <- paste0('
+  }, height = ', modelClone$nmanifest*plotHeight, ');
   observe({
       if(input$close > 0){
         stopApp(getParameterValues(modelClone))
@@ -102,7 +102,7 @@ endSERVER <- '
   })
   }
 shinyApp(ui, server)
-'
+')
 combined <- paste0(UI, SERVER, plots, arrangePlots, endSERVER)
 
 if(runShiny){

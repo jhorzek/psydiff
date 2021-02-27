@@ -409,8 +409,8 @@ newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0
                                                     ncol = ncol(dataset[["observations"]]),
                                                     nrow = nrow(dataset[["observations"]])),
                        "latentScores" = matrix(-99999.99,
-                                                    ncol = nlatent,
-                                                    nrow = nrow(dataset[["observations"]])),
+                                               ncol = nlatent,
+                                               nrow = nrow(dataset[["observations"]])),
                        "alpha" = alpha,
                        "beta" = beta,
                        "kappa" = kappa,
@@ -421,7 +421,7 @@ newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0
                        "eps" = eps,
                        "direction" = direction,
                        "cppCode" = modelCpp
-                       )
+  )
 
   message("Use compileModel to compile the model.")
   return("psydiffModel" = psydiffModel)
@@ -430,7 +430,7 @@ newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0
 
 #' compileModel
 #'
-#' compile the models from newPsydiff
+#' compile the model from newPsydiff
 #'
 #' @param psydiffModel model from newPsydiff
 #' @export
@@ -442,9 +442,62 @@ compileModel <- function(psydiffModel){
   cat("Compiling model...")
   Rcpp::sourceCpp(file = filename)
   cat("Done.\n")
-  message("The model can be fitted with the fitModel()-function and the returned object. Use getGradients() to compute the central gradients of the model.")
+  message("The model can be fitted with the fitModel()-function and the returned object. Use getGradients() to compute the central gradients of the model. If you want to compute gradients in parallel, use compileParallelGradients to set up the cluster.")
 }
 
+#' compileParallelGradients
+#'
+#' compile the model from newPsydiff for use with parallel gradient computation. This function will invoke parallel::makeCluster(nCores, type = "PSOCK"). Stop the cluster with stopParallelGradients().
+#'
+#' @param psydiffModel model from newPsydiff
+#' @param nCores number of cores to use
+#' @return psydiffModel with additional cl field for workers
+#' @export
+compileParallelGradients <- function(psydiffModel, nCores){
+  availableCores <- parallel::detectCores()
+  if(nCores > availableCores){
+    stop("More cores requested than available on your machine. Use parallel::detectCores() to detect the number of cores you can maximally use.")
+  }
+  cl <- parallel::makeCluster(nCores, type = "PSOCK")
+
+  parallel::clusterExport(cl, c("psydiffModel"), envir = environment())
+  parallel::clusterEvalQ(cl, library(psydiff))
+
+  cat("Compiling models...")
+  parallel::clusterEvalQ(cl, compileModel(psydiffModel))
+  cat("Done.\n")
+  message("Gradients can now be computed with getGradientsParallel(). Stop the cluster with stopParallelGradients()")
+
+  psydiffModel$cl <- cl
+  return(psydiffModel)
+}
+
+#' stopParallelGradients
+#'
+#' Stops the workers.
+#'
+#' @param psydiffModel model from newPsydiff
+#' @return
+#' @export
+stopParallelGradients <- function(psydiffModel){
+  availableCores <- parallel::stopCluster(psydiffModel$cl)
+}
+
+#' getGradientsParallel
+#'
+#' Computes gradients in parallel. Requires compileParallelGradients to be used first!
+#'
+#' @param psydiffModel model from newPsydiff
+#' @export
+getGradientsParallel <- function(psydiffModel){
+  pars <- getParameterValues(psydiffModel)
+  parallel::clusterExport(psydiffModel$cl, c("psydiffModel"), envir = environment())
+  parGrad <- parallel::parLapplyLB(cl = psydiffModel$cl, X = seq_len(length(getParameterValues(psydiffModel))), fun = function(X,psydiffModel,gradFun, pars){
+    getGradient(psydiffModel = psydiffModel, par = X-1, currentParameterValues = pars)
+  }, psydiffModel = psydiffModel, gradFun = getGradient, pars = pars)
+  parGrad <- unlist(parGrad)
+  return(parGrad[names(pars)])
+}
 
 checkEquation <- function(equation){
   if(!stringr::str_detect(equation, ";", negate = FALSE)){

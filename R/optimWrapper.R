@@ -20,10 +20,11 @@ psydiffOptimNelderMead <- function(model, ...){
 #' @param ... additional parameters to pass to optim
 #' @export
 #'
-psydiffOptimBFGS <- function(model, ...){
+psydiffOptimBFGS <- function(model, fn = psydiffFitInternal, gr = psydiffGradientsInternal, ...){
   startingValues <- psydiff::getParameterValues(model)
 
-  out <- optim(par = startingValues, fn = psydiffFitInternal, method = "BFGS",
+  out <- optim(par = startingValues, fn = fn, gr = gr,
+               method = "BFGS",
                model = model,
                parsnames = names(startingValues), ...)
   return(out)
@@ -37,10 +38,10 @@ psydiffOptimBFGS <- function(model, ...){
 #' @import optimx
 #' @export
 #'
-psydiffOptimx <- function(model, method=c("Nelder-Mead","BFGS", "nlm", "nlminb"), ...){
+psydiffOptimx <- function(model, method=c("Nelder-Mead","BFGS", "nlm", "nlminb"), fn = psydiffFitInternal, gr = psydiffGradientsInternal,...){
   startingValues <- psydiff::getParameterValues(model)
 
-  out <- optimx::optimx(par = startingValues, fn = psydiffFitInternal, method = method,
+  out <- optimx::optimx(par = startingValues, fn = fn, gr = gr, method = method,
                         model = model,
                         parsnames = names(startingValues), ...)
   return(out)
@@ -69,29 +70,6 @@ extractOptimx <- function(model, opt){
   return(model)
 }
 
-#' psydiffOptimxMultiStart
-#'
-#' wrapper for optimx optimization
-#' @param model psydiff model object (must have been compiled before calling psydiffOptimx)
-#' @param ... additional parameters to pass to optimx
-#' @import optimx
-#' @export
-#'
-psydiffOptimxMultiStart <- function(model, method=c("Nelder-Mead","BFGS"), startMatrix = NULL, nstart = 20, sd = 1, ...){
-
-  startingValues <- psydiff::getParameterValues(model)
-  if(is.null(startMatrix)){
-    startMatrix <- matrix(rep(startingValues, nstart), nrow = nstart, byrow = TRUE)
-    colnames(startMatrix) <- names(startingValues)
-    startMatrix <- startMatrix + rnorm(nstart * length(startingValues), mean = 0, sd = sd)
-  }
-
-  out <- optimx::multistart(parmat = startMatrix, fn = psydiffFitInternal, method = method,
-                            model = model,
-                            parsnames = names(startingValues), ...)
-  return(out)
-}
-
 #' psydiffDEoptim
 #'
 #' wrapper for DEoptim optimization
@@ -105,7 +83,52 @@ psydiffOptimxMultiStart <- function(model, method=c("Nelder-Mead","BFGS"), start
 psydiffDEoptim <- function(model, lower, upper, ...){
   startingValues <- psydiff::getParameterValues(model)
 
-  out <- DEoptim::DEoptim(fn = ffit, lower = lower, upper = upper,
+  out <- DEoptim::DEoptim(fn = psydiffFitInternal, lower = lower, upper = upper,
+                          model = model,
+                          parsnames = names(startingValues),
+                          ...)
+  return(out)
+}
+
+#' psydiffSubplex
+#'
+#' wrapper for subplex optimization
+#' @param model psydiff model object (must have been compiled before calling psydiffSubplex)
+#' @param ... additional parameters to pass to subplex
+#' @import subplex
+#' @export
+#'
+psydiffSubplex <- function(model, ...){
+  startingValues <- psydiff::getParameterValues(model)
+
+  out <- subplex::subplex(fn = psydiffFitInternal,
+                          par = startingValues,
+                          model = model,
+                          parsnames = names(startingValues),
+                          ...)
+  return(out)
+}
+
+#' psydiffNLopt
+#'
+#' wrapper for NLopt optimization
+#' @param model psydiff model object (must have been compiled before calling psydiffNLopt)
+#' @param ... additional parameters to pass to NLopt
+#' @import nloptr
+#' @export
+#'
+psydiffNLopt <- function(model, eval_f = psydiffFitInternal,...){
+  startingValues <- psydiff::getParameterValues(model)
+  local_opts <-list("algorithm"="NLOPT_LD_MMA",
+                    "xtol_rel"=1.0e-15)
+  opts <-list("algorithm"="NLOPT_LD_LBFGS_NOCEDAL",
+              "xtol_rel"=1.0e-15,
+              "maxeval"=500,
+              "local_opts"= local_opts,
+              "print_level"=1)
+  out <- nloptr::nloptr(eval_f = eval_f,
+                        x0 = startingValues,
+                        opts = opts,
                           model = model,
                           parsnames = names(startingValues),
                           ...)
@@ -133,6 +156,39 @@ psydiffFitInternal <- function(pars, parsnames, model){
   return(sum(fit$m2LL))
 }
 
+#' psydiffGradientsInternal
+#'
+#' internal function for optimization
+#' @param pars vector with parameter values
+#' @param parsnames vector with parameter names
+#' @param model psydiff model object
+#' @export
+#'
+psydiffGradientsInternal <- function(pars, parsnames, model){
+  setParameterValues(model$pars$parameterTable, parameterLabels = parsnames, parameterValues = pars)
+  if(!is.null(model$cl)){
+    invisible(capture.output(gradients <- try(getGradientsParallel(model),
+                                        silent = TRUE),
+                             type = "message"))
+  }else{
+    invisible(capture.output(gradients <- try(getGradients(model),
+                                        silent = TRUE),
+                             type = "message"))
+  }
+
+
+  if(any(class(gradients) == "try-error")){
+    gradients <- rep(1, length(pars))
+    names(gradients) <- parsnames
+    return(gradients)
+  }
+  if(anyNA(gradients)){
+    gradients[is.na(gradients)] <- 1
+    return(gradients)
+  }
+  return(gradients)
+}
+
 #' getStandardErrors
 #'
 #' compute standard errors for a fitted model using the diagonal elements in the inverse of the hessian approximation from optimHess
@@ -143,8 +199,8 @@ psydiffFitInternal <- function(pars, parsnames, model){
 getStandardErrors <- function(model, ...){
   pars <- getParameterValues(model)
   hess <- optimHess(fn = psydiffFitInternal, par = pars,
-                            model = model,
-                            parsnames = names(pars),
+                    model = model,
+                    parsnames = names(pars),
                     ...)
   # Note: We are minimizing the negative log likelihood.
   # The Hessian is therefore .5*"observed Fisher Information"
@@ -154,26 +210,4 @@ getStandardErrors <- function(model, ...){
   return(standardErrors)
 }
 
-#' getStandardErrorsHW
-#'
-#' compute Huber White robust standard errors for a fitted model
-#' @param model psydiff model
-#' @param ... additional arguments to pass to optimHess
-#' @return vector with standard errors
-#' @export
-getStandardErrorsHW <- function(model, ...){
-  warning("Huber White Standard Errors are not working correctly!")
-  pars <- getParameterValues(model)
-  grad <- getGradients(model)
-  hess <- optimHess(fn = psydiffFitInternal, par = pars,
-                    model = model,
-                    parsnames = names(pars),
-                    ...)
-  # Note: We are minimizing the -2 log likelihood.
-  # The Hessian is therefore the .5*"observed Fisher Information"
-  InformationInverse <- 2*solve(hess)
-  covMat <- InformationInverse%*%matrix(-2*grad, ncol = 1)%*%matrix(-2*grad, nrow = 1)%*%InformationInverse
-  standardErrorsHW <- sqrt(diag(covMat))
-  names(standardErrorsHW) <- names(pars)
-  return(standardErrorsHW)
-}
+

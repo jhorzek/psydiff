@@ -497,6 +497,83 @@ Rcpp::NumericVector getGradients(Rcpp::List psydiffModel){
   return(Rcpp::clone(gradients));
 }
 
+// [[Rcpp::export]]
+Rcpp::NumericVector getGradient(Rcpp::List psydiffModel, Rcpp::NumericVector currentParameterValues, int par){
+  Rcpp::List psydiffModelClone = Rcpp::clone(psydiffModel);
+  Rcpp::List pars = psydiffModelClone["pars"];
+  Rcpp::DataFrame parameterTable = Rcpp::as<Rcpp::DataFrame>(pars["parameterTable"]);
+  arma::colvec eps = psydiffModelClone["eps"];
+  std::string direction = psydiffModelClone["direction"];
+  Rcpp::NumericMatrix m2LLs(1 , 3);
+  m2LLs.fill(0.0);
+  Rcpp::NumericVector gradients(1);
+  arma::colvec m2LL;
+  Rcpp::List fittedModel;
+  double rightM2LL, leftM2LL;
+
+  setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+
+  if(!(direction == "central" || direction == "left" || direction == "right" )){
+    Rcpp::stop("Unknown direction argument. Possible are central, left and right");
+  }
+
+  if(direction == "left"){
+    fittedModel = fitModel(psydiffModelClone);
+    rightM2LL = sum(Rcpp::as<arma::colvec>(fittedModel["m2LL"]));
+  }
+  if(direction == "right"){
+    fittedModel = fitModel(psydiffModelClone);
+    leftM2LL = sum(Rcpp::as<arma::colvec>(fittedModel["m2LL"]));
+  }
+
+
+  // Step left
+  if(direction == "left" || direction == "central"){
+    for(int e = 0; e < eps.n_elem; e++){
+      currentParameterValues(par) -= eps(e);
+      setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+      fittedModel = fitModel(psydiffModelClone);
+      m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
+      currentParameterValues(par) += eps(e);
+      if(arma::is_finite(sum(m2LL))){
+        m2LLs(0,0) = sum(m2LL);
+        m2LLs(0,2) += eps(e);
+        break;
+      }else{
+        m2LLs(0,0) = R_NaN;
+      }
+    }
+
+  }else{
+    m2LLs(0,0) = leftM2LL;
+  }
+
+  // Step right
+  if(direction == "right" || direction == "central"){
+    for(int e = 0; e < eps.n_elem; e++){
+      currentParameterValues(par) += eps(e);
+      setParameterValues_C(parameterTable, currentParameterValues, currentParameterValues.names());
+      fittedModel = fitModel(psydiffModelClone);
+      m2LL = Rcpp::as<arma::colvec>(fittedModel["m2LL"]);
+      currentParameterValues(par) -= eps(e);
+      if(arma::is_finite(sum(m2LL))){
+        m2LLs(0,1) = sum(m2LL);
+        m2LLs(0,2) += eps(e);
+        break;
+      }else{
+        m2LLs(0,0) = R_NaN;
+      }
+    }
+  }else{
+    m2LLs(0,1) = rightM2LL;
+  }
+
+  gradients = (m2LLs(Rcpp::_,1) - m2LLs(Rcpp::_,0))/m2LLs(Rcpp::_,2);
+  Rcpp::CharacterVector parLabels = currentParameterValues.names();
+  Rcpp::String parLabel = parLabels(par);
+  gradients.names() = parLabel;
+  return(Rcpp::clone(gradients));
+}
 '
   }else{
     mod <- '
