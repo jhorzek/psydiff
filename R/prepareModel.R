@@ -615,8 +615,8 @@ makeGroups <- function(grouping, groupingvariables, parameterTable){
 
 
 prepareEquations <- function(equations, parameters){
-  ## remove any special symbols (+, +, ...)
-  elementsInEquations <- stringr::str_split(equations, '[^[:alnum:]]')[[1]]
+  ## split at any special symbols (+, -, ...) except for _
+  elementsInEquations <- stringr::str_split(equations, '[^[:alnum:]|^_]')[[1]]
   elementsInEquations <- elementsInEquations[!elementsInEquations== ""]
   equationsCombined <- "Rcpp::List modelPars = pars.parameterList;
   "
