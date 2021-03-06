@@ -151,7 +151,7 @@ psydiffFitInternal <- function(pars, parsnames, model){
                            type = "message"))
 
   if(any(class(fit) == "try-error") || anyNA(fit$m2LL)){
-    return(99999999999)
+    return(.5*.Machine$double.xmax)
   }
   return(sum(fit$m2LL))
 }

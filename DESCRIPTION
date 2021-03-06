@@ -7,8 +7,12 @@ Author: Jannik Orzek
 Maintainer: Jannik Orzek Name <orzek@mpib-berlin.mpg.de>
 Description: Temporary package for fitting panel stochastic differential equations.
 License: GPL (>= 2)
-Suggests: tinytest
+Suggests: 
+    tinytest,
+    knitr,
+    rmarkdown
 Imports: Rcpp (>= 1.0.5), stringr
 LinkingTo: Rcpp, RcppArmadillo
 RoxygenNote: 7.1.1
 Encoding: UTF-8
+VignetteBuilder: knitr

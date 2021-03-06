@@ -301,6 +301,7 @@ newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0
            'observations', 'dt'")
     }
   }
+  if(!is.matrix(dataset[["observations"]])){stop("Field observations in dataset has to be of type matrix")}
   if(!ncol(dataset[["observations"]]) == nmanifest){
     stop("Dataset and R differ in their number of manifest variables.")
   }
@@ -679,7 +680,7 @@ sdeModelMatrix <- function(values, labels){
 
 sepNameFromValue <- function(mat){
   if(is.numeric(mat)){
-    return(list("labels" = NULL, "values" = mat))
+    return(list("labels" = matrix("", nrow = nrow(mat), ncol = ncol(mat)), "values" = mat))
   }
   labelMat <- matrix("", ncol = ncol(mat), nrow = nrow(mat))
   valueMat <- matrix(NA, ncol = ncol(mat), nrow = nrow(mat))

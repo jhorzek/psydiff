@@ -1,0 +1,128 @@
+---
+title: "psydiff-basics"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{psydiff-basics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(psydiff)
+```
+
+# psydiff
+
+psydiff is an R package for modeling latent stochastic differential equations based on the unscented Kalman filter described by Sarkka, S. (2007). On Unscented Kalman Filtering for State Estimation of Continuous-Time Nonlinear Systems. IEEE Transactions on Automatic Control, 52(9), 1631–1641. https://doi.org/10.1109/TAC.2007.904453. The package implements the square root version of the continuous discrete unscented Kalman filter. 
+
+## Model
+
+$$
+\begin{align}
+\text{d}x(t) &= f(x(t), t)\text{d}t + L\text{d}W(t)\\
+y_u &= h(x(t_u),t_u) + r_u
+\end{align}
+$$
+
+where
+
+* $x(t)$ is the latent state at time point $t$
+* $f(x(t), t)$ is the drift function
+* $L$ is the Cholesky of the diffusion matrix (lower triangular)
+* $W$ is the Wiener process
+* $y_u$ is the observation in discrete time at measurement occasion $u$
+* $h(x(t_u),t_u)$ is the measurement equation evaluated at the time point of measurement occasion $u$
+* $r_u$ is the measurement error
+
+The measurement error is assumed to be normally distributed with $r \sim N(0, R)$. The naming of the matrices is closely oriented at Sarkka (2007).
+
+To fit the model, the initial state $m0$ (i.e., $x(0)$) and the Cholesky of the initial covariance matrix of the latent process $A0$ are required. If the model is fitted for a single individual, only one of those elements can be estimated. If the model is fitted to multiple individuals, both $m0$ and $A0$ can be estimated.
+
+## Model specification in psydiff
+
+A model is generated with the newPsydiff function. The function requires at least:
+
+* a data set
+* a model for the latent equations
+* a model for the manifest equations
+* L matrix (for diffusion) 
+* Rchol (Cholesky of manifest residual covariances)
+* A0 (Cholesky of initial latent covariance matrix)
+* m0 (initial states)
+* parameters (List of parameters which are in the latent and manifest equations)
+
+Furthermore, a grouping function and additional elements can be passed to the function (see below).
+
+### data set
+
+The data set has to be in long format. It must be provided as list with the following fields:
+
+1. person: The field "person" specifies for each observation, for which person it was made. The person variable has to be of type integer
+2. observations: The observations field should be a matrix with the observations sorted as y[1], y[2], y[3], y[4]. psydiff currently can not handle variable names and will not return an error if the sorting makes no sense
+3. dt: The field dt specifies for each observation the time lag since the previous observation
+
+#### Example:
+
+### Latent equations
+
+The equations are specified as strings. Here is an example:
+
+```{r}
+latentEquations <- "
+dx[0] = x[0]*(alpha - beta*x[1]);
+dx[1] = -x[1]*(gamma - delta*x[0]);
+"
+```
+
+
+There are a few important things to note:
+
+1. What we are writing here, is C++ code. Therefore, every command (here: every line) has to end with a semicolon! If you forget a semicolon, compiling the model will fail.
+2. In C++, indexing works differently from R: In R x[1] refers to the first element in the vector x. However, in C++ x[0] refers to the first element! In the example given above, there are 2 latent processes in the vector x. x[0] refers to the first one, while x[1] refers to the second one. The same is true for the dx vector. dx[0] refers to the first element in dx and dx[1] to the second
+3. alpha, beta, gamma, and delta are "parameters" which we will have to specify in the parameters list (see below).
+
+As we are writing C++ code here, you can also incorporate quite complex models using, for instance, the Armadillo library which used by psydiff for most mathematical operations. For instance, assume that one of the "parameters" is a matrix called A. For whatever reason, we decide to use the matrix exponential in the latent equation. Then we can do this by:
+
+```{r}
+latentEquations <- "
+arma::mat expOfA = arma::expm(A);
+dx[0] = x[0]*(alpha - beta*x[1]);
+dx[1] = -x[1]*(gamma - delta*x[0]);
+"
+```
+
+Note that we have to specify the class of the resulting variable (here: arma::mat). 
+
+### Manifest equations
+
+The manifest equations work similarly to the latent equations. Here an example:
+
+```{r}
+manifestEquations <- "
+y[0] = 1*x[0];
+y[1] = a1*x[0];
+y[2] = 1*x[1];
+y[3] = a2*x[1];
+"
+```
+
+Note that there are 4 manifest variables. Again, indexing starts at 0. a1 and a2 are loading parameters which we will have to specify in the parameters list.
+
+### Special matrices
+
+#### L matrix (for diffusion) 
+
+The Cholesky of the diffusion matrix has to be specified as follows:
+
+
+
+* Rchol (Cholesky of manifest residual covariances)
+* A0 (Cholesky of initial latent covariance matrix)
+* m0 (initial states)
