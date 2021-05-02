@@ -28,7 +28,7 @@ inline arma::colvec getCovWeights_C(const int &n, const double &alpha,
   double lambda = pow(alpha, 2)*(n+kappa)-n;
   arma::colvec covWeights(2*n+1);
   covWeights.fill(1/(2*(n+lambda)));
-  covWeights(0) = lambda/(n+lambda + 1-pow(alpha,2) + beta);
+  covWeights(0) = lambda/(n+lambda) + (1-pow(alpha,2) + beta);
   return(covWeights);
 }
 

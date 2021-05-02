@@ -8,7 +8,7 @@ psydiffOptimx(
   model,
   method = c("Nelder-Mead", "BFGS", "nlm", "nlminb"),
   fn = psydiffFitInternal,
-  gr = psydiffGradientsInternal,
+  gr = NULL,
   ...
 )
 }
