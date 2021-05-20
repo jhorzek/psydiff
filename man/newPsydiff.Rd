@@ -117,7 +117,7 @@ myModel <- ctsem::ctModel(Tpoints=5,n.latent=2,n.TDpred=0,n.TIpred=0,n.manifest=
                           CINT=0,
                           DIFFUSION=matrix(c('eta1_eta1',0,0,'eta2_eta2'),2),
                           T0MEANS=matrix(c(1,2),ncol=1,nrow=2),
-T0VAR="auto", type = "omx")
+                          T0VAR="auto", type = "omx")
 
 myModel <- ctFit(myModel, dat = traindata, objective = "Kalman", useOptimizer = T,
                  stationary = c('T0TRAITEFFECT','T0TIPREDEFFECT'))
@@ -159,9 +159,9 @@ L = sdeModelMatrix(values = t(chol(myModel$mxobj$DIFFUSION$result)),
 
 # set up model
 model <- newPsydiff(dataset = dat, latentEquations = latentEquations,
-                  manifestEquations = manifestEquations,
-                  L = L, Rchol = Rchol, A0 = A0, m0 = m0,
-                  parameters = parameters)
+                    manifestEquations = manifestEquations,
+                    L = L, Rchol = Rchol, A0 = A0, m0 = m0,
+                    parameters = parameters)
 
 # compile model
 compileModel(model)
@@ -184,6 +184,8 @@ sum(out$m2LL)
 ## optimize model with optimx
 
 optimized <- psydiffOptimx(model)
+optimized.model <- psydiff::extractOptimx(model = model, opt = optimized)
+fitModel(optimized.model)
 
 ## additional grouping
 # we will make the initial mean mm_Y1 person specific and mm_Y2 depend on a grouping parameter
@@ -195,12 +197,18 @@ groupinglist <- list("group1" = c(rep(1,5), rep(2,5)))
 
 # set up model
 model <- newPsydiff(dataset = dat, latentEquations = latentEquations,
-                  manifestEquations = manifestEquations, grouping = grouping,
-                  L = L, Rchol = Rchol, A0 = A0, m0 = m0,
-                  parameters = parameters, groupingvariables = groupinglist, compile = TRUE)
+                    manifestEquations = manifestEquations, grouping = grouping,
+                    L = L, Rchol = Rchol, A0 = A0, m0 = m0,
+                    parameters = parameters, groupingvariables = groupinglist)
+# compile model
+compileModel(model)
+
+# set parameters
 parval <- psydiff::getParameterValues(model)
 
 optimized <- psydiffOptimx(model, control = list(trace = 1))
+optimized.model <- psydiff::extractOptimx(model = model, opt = optimized)
+fitModel(optimized.model)
 
 ## The following example is taken from ctsem and also demonstrates the use of the GIST optimizer
 library(ctsemOMX)
@@ -292,7 +300,7 @@ ctMod <- ctModel(LAMBDA = LAMBDA, n.manifest = 1, n.latent = 2,
                  MANIFESTVAR = MANIFESTVAR, MANIFESTMEANS = 0,
                  DRIFT = DRIFT, DIFFUSION = LATENTVAR)
 ctDat <- ctGenerate(ctMod, n.subjects = 1)
-plot(ctDat$Y1, type = "p")
+plot(ctDat[,"Y1"], type = "p")
 
 ## Define model in psydiff
 
@@ -313,9 +321,9 @@ L <- ctMod$DIFFUSION
 
 parameters <- list("cint" = 1, "a" = -.5, "b" = -.5)
 
-dat <- list("person" = ctDat$id,
-            "observations" = matrix(ctDat$Y1, ncol = 1),
-            "dt" = c(0,rep(1,length(ctDat$time)-1)))
+dat <- list("person" = ctDat[,"id"],
+            "observations" = matrix(ctDat[,"Y1"], ncol = 1),
+            "dt" = c(0,rep(1,length(ctDat[,"time"])-1)))
 
 ## optimize model
 
@@ -330,4 +338,113 @@ compileModel(model)
 ## Of the optimizers I tried, Nelder-Mead results in  the best fit for this model
 nm <- psydiffOptimNelderMead(model, control = list("trace" = 1))
 lines(model$predictedManifest, col = "#008080", lwd = 3) # Note: model object was changed by reference
+
+
+# Predator Prey Model
+library(deSolve)
+
+NPerson <- 5
+measurementOccasions <- 100
+burnin <- 1000
+
+# function from deSolve:
+LotVmod <- function (Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+    dx = x*(alpha - beta*y)
+    dy = -y*(gamma - delta*x)
+    return(list(c(dx, dy)))
+  })
+}
+
+Pars <- c(alpha = 2, beta = .5, gamma = .4, delta = .2)
+State <- c(x = 10, y = 10)
+Time <- seq(0, 200, length.out = measurementOccasions + burnin)
+
+persons <- c()
+laggedTimes <- c()
+for(p in 1:NPerson){
+  out <- as.data.frame(ode(func = LotVmod, y = State, parms = Pars, times = Time))
+  out <- out[(nrow(out) - measurementOccasions+1):nrow(out), ]
+  obs <- as.matrix(out[,c("x", "y")]) \%*\%matrix(c(1,2,0,0,
+                                                  0,0,1,4), nrow = 2, byrow = T)
+  obs <- obs +
+    mvtnorm::rmvnorm(n = measurementOccasions,
+                     mean = rep(0,4),
+                     sigma = diag(1,4))
+  if(p == 1){
+    observations <- obs
+  }else{
+    observations <- rbind(observations, obs)
+  }
+  laggedTime <- out$time
+  laggedTime[2:length(laggedTime)] <- laggedTime[2:length(laggedTime)] - laggedTime[1:(length(laggedTime)-1)]
+  laggedTime[1] <- 0
+  laggedTimes <- c(laggedTimes, laggedTime)
+
+  persons <- c(persons, rep(p,measurementOccasions))
+}
+
+matplot(as.matrix(out[,c("x", "y")]), type = "l")
+matpoints(observations[persons == 1,],
+          type = "p", lty = 1)
+##
+## with psydiff
+# prepare data
+dat <- list("person" = persons,
+            "observations" = observations,
+            "dt" = laggedTimes)
+
+## prepare model
+
+latentEquations <- "
+dx[0] = x[0]*(alpha - beta*x[1]);
+dx[1] = -x[1]*(gamma - delta*x[0]);
+"
+#'
+manifestEquations <- "
+y[0] = 1*x[0];
+y[1] = a1*x[0];
+y[2] = 1*x[1];
+y[3] = a2*x[1];
+"
+
+parameters <- list("alpha" = 0.1, "beta" = .1,
+                   "gamma" = .1, "delta" = .1,
+                   "a1" = 1, "a2" = 1)
+
+m0  <- matrix(c("m01 = 1", "m02 = 1"), nrow = 2)
+A0 <-matrix(c("a01 = 1", "0",
+              "a012 = .2", "a02 = 1"),2,2,T)
+Rchol <-matrix(c("r1 = 0.1", "0", "0", "0",
+                 "0", "r2 = 0.1", "0", "0",
+                 "0", "0", "r3 = 0.1", "0",
+                 "0", "0", "0", "r4 = 0.1"),4,4,T)
+L = matrix(c("0", "0",
+             "0", "0"),2,2,T)
+
+# set up model
+model <- newPsydiff(dataset = dat, latentEquations = latentEquations,
+                    manifestEquations = manifestEquations,
+                    L = L, Rchol = Rchol, A0 = A0, m0 = m0,
+                    parameters = parameters)
+
+# compile model
+compileModel(model)
+
+fitModel(model)
+startVal <- inspectModel(model)
+setParameterValues(model$pars$parameterTable,
+                   parameterValues = startVal,
+                   parameterLabels = names(startVal))
+
+opt <- psydiffOptimx(model,
+                     method = c("nlminb"),
+                     control = list("trace" = 1, "kkt" = FALSE, "maxit" = 200),
+                     hessian = FALSE)
+model <- extractOptimx(model = model, opt = opt)
+f <- fitModel(model)
+inspectModel(model)
+
+plot(observations[persons==1,1])
+lines(1:length(f$predictedManifest[,1]), f$predictedManifest[,1], col = "red")
 }

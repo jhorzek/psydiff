@@ -60,10 +60,10 @@ GIST <- function(model, startingValues, lambda, adaptiveLassoWeights, regularize
 
   m2LL_k <- sum(out1$m2LL)
 
-  regM2LL_k <- m2LL_k + regCtsem::exact_getRegValue(lambda = lambda,
-                                                    theta = parameters_k,
-                                                    regIndicators = regularizedParameters,
-                                                    adaptiveLassoWeights = adaptiveLassoWeights)
+  regM2LL_k <- m2LL_k + getRegValue(lambda = lambda,
+                                    theta = parameters_k,
+                                    regIndicators = regularizedParameters,
+                                    adaptiveLassoWeights = adaptiveLassoWeights)
   regM2LL <- rep(NA, maxIter_out)
   regM2LL[1] <- regM2LL_k
 
@@ -152,10 +152,10 @@ GIST <- function(model, startingValues, lambda, adaptiveLassoWeights, regularize
 
       m2LL_kp1 <- sum(out1$m2LL)
 
-      regM2LL_kp1 <- m2LL_kp1 + regCtsem::exact_getRegValue(lambda = lambda,
-                                                            theta = parameters_kp1,
-                                                            regIndicators = regularizedParameters,
-                                                            adaptiveLassoWeights = adaptiveLassoWeights)
+      regM2LL_kp1 <- m2LL_kp1 + getRegValue(lambda = lambda,
+                                            theta = parameters_kp1,
+                                            regIndicators = regularizedParameters,
+                                            adaptiveLassoWeights = adaptiveLassoWeights)
 
       if(verbose == 2){
         cat(paste0("\r",
@@ -264,9 +264,9 @@ GIST <- function(model, startingValues, lambda, adaptiveLassoWeights, regularize
   rownames(parameterMatrix) <- parameterNames
   gradientMatrix <- matrix(gradients_k[parameterNames], ncol = 1)
   rownames(gradientMatrix) <- parameterNames
-  subgradients <- regCtsem::exact_getSubgradients(theta = parameterMatrix, jacobian = gradientMatrix,
-                                                  regIndicators = regularizedParameters, lambda = lambda,
-                                                  lineSearch = NULL, adaptiveLassoWeightsMatrix = adaptiveLassoWeightsMatrix)
+  subgradients <- getSubgradients(theta = parameterMatrix, jacobian = gradientMatrix,
+                                  regIndicators = regularizedParameters, lambda = lambda,
+                                  lineSearch = NULL, adaptiveLassoWeightsMatrix = adaptiveLassoWeightsMatrix)
 
   if(any(abs(subgradients)>1)){
     # Problem: gradients extremely dependent on the epsilon in the approximation
@@ -288,3 +288,76 @@ fitf <- function(pars, model){
   return(sum(fit$m2LL))
 }
 
+#' getSubgradients
+#'
+#' Computes the subgradients of a lasso penalized likelihood f(theta) = L(theta)+lambda*p(theta)
+#'
+#' NOTE: Function located in file exact_optimization.R
+#'
+#' @param theta vector with named parameters
+#' @param jacobian derivative of L(theta)
+#' @param regIndicators names of regularized parameters
+#' @param lambda lambda value
+#' @export
+getSubgradients <- function(theta, jacobian, regIndicators, lambda, lineSearch, adaptiveLassoWeightsMatrix){
+
+  # first part: derivative of Likelihood
+  subgradient <- jacobian
+
+  # second part: derivative of penalty term
+  ## Note: if adaptiveLassoWeightsMatrix*parameter != 0, the derivative is: lambda*adaptiveLassoWeight*sign(parameter)
+  ## if adaptiveLassoWeightsMatrix*parameter == 0, the derivative is in [-lambda*adaptiveLassoWeight, +lambda*adaptiveLassoWeight]
+  for(regularizedParameterLabel in regIndicators){
+    absoluteValueOf <- theta[regularizedParameterLabel,]
+    if(absoluteValueOf != 0){
+      penaltyGradient <- adaptiveLassoWeightsMatrix[regularizedParameterLabel,regularizedParameterLabel]*lambda*sign(absoluteValueOf)
+      subgradient[regularizedParameterLabel,] <- subgradient[regularizedParameterLabel,] + penaltyGradient
+    }else{
+      penaltyGradient <- c(-adaptiveLassoWeightsMatrix[regularizedParameterLabel,regularizedParameterLabel]*lambda, adaptiveLassoWeightsMatrix[regularizedParameterLabel,regularizedParameterLabel]*lambda)
+      # check if likelihood gradient is within interval:
+      setZero <- (subgradient[regularizedParameterLabel,] > penaltyGradient[1]) && (subgradient[regularizedParameterLabel,] < penaltyGradient[2])
+      subgradient[regularizedParameterLabel,] <- ifelse(setZero,
+                                                        0,
+                                                        sign(subgradient[regularizedParameterLabel,])*(abs(subgradient[regularizedParameterLabel,]) -
+                                                                                                         adaptiveLassoWeightsMatrix[regularizedParameterLabel,
+                                                                                                                                    regularizedParameterLabel]*lambda))
+    }
+  }
+  return(subgradient)
+}
+
+#' getRegValue
+#'
+#' computes sum(lambda*abs(regularized Values))
+#'
+#' @param regIndicators Names of regularized parameters
+#' @param lambda Penaltiy value
+#' @param adaptiveLassoWeights weights for the adaptive lasso.
+#' @export
+getRegValue <- function(lambda, theta, regIndicators, adaptiveLassoWeights = NULL){
+
+  regVal <- 0
+  if(!is.vector(theta)){
+    thetaNames <- rownames(theta)
+    # iterate over theta
+    for(th in thetaNames){
+      # if theta is regularized
+      if(th %in% regIndicators){
+        regVal <- regVal + lambda*abs(theta[th,])*ifelse(is.null(adaptiveLassoWeights),1,adaptiveLassoWeights[th])
+      }
+    }
+    names(regVal) <- NULL
+    return(regVal)
+  }
+
+  thetaNames <- names(theta)
+  # iterate over theta
+  for(th in thetaNames){
+    # if theta is regularized
+    if(th %in% regIndicators){
+      regVal <- regVal + lambda*abs(theta[th])*ifelse(is.null(adaptiveLassoWeights),1,adaptiveLassoWeights[th])
+    }
+  }
+  names(regVal) <- NULL
+  return(regVal)
+}
