@@ -26,6 +26,7 @@
 #' @return psydiffModel that can be compiled with compileModel()
 #'
 #' @examples
+#' \dontrun{
 #' library(psydiff)
 #' library(ctsemOMX)
 #'
@@ -392,6 +393,7 @@
 #'
 #' plot(observations[persons==1,1])
 #' lines(1:length(f$predictedManifest[,1]), f$predictedManifest[,1], col = "red")
+#' }
 #' @export
 
 newPsydiff <- function(dataset, latentEquations, manifestEquations, L, Rchol, A0, m0,

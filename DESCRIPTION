@@ -11,8 +11,8 @@ Suggests:
     tinytest,
     knitr,
     rmarkdown
-Imports: Rcpp (>= 1.0.5), stringr
-LinkingTo: Rcpp, RcppArmadillo
+Imports: Rcpp (>= 1.0.5), stringr, BH, optimx, DEoptim, nloptr, subplex
+LinkingTo: Rcpp, RcppArmadillo, BH
 RoxygenNote: 7.1.1
 Encoding: UTF-8
 VignetteBuilder: knitr

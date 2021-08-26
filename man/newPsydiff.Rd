@@ -81,6 +81,7 @@ psydiffModel that can be compiled with compileModel()
 newPsydiff
 }
 \examples{
+\dontrun{
 library(psydiff)
 library(ctsemOMX)
 
@@ -447,4 +448,5 @@ inspectModel(model)
 
 plot(observations[persons==1,1])
 lines(1:length(f$predictedManifest[,1]), f$predictedManifest[,1], col = "red")
+}
 }

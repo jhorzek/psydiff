@@ -37,3 +37,12 @@ vignettes/*.pdf
 inst/doc
 doc
 Meta
+
+# C++ compiled files
+src/*.o
+src/*.so
+src/*.dll
+src/*/*.o
+src/*/*.so
+src/*/*.dll
+src/Makevars
