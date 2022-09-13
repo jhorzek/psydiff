@@ -2,7 +2,7 @@
 
 **Numerical Integration of Panel Stochastic Differential Equations**
 
-**WARNING**: This package is under development and should **not** be used in any real analyses. **Please use dynr instead** (https://github.com/mhunter1/dynr). psydiff can be used to get some ideas of how to implement stochastic differential equations in R using the square root unscented Kalman filter procedure developed by Sarkka (2007).
+**WARNING**: This package is **not** working, **not** maintained and should **not** be used. **Please use dynr instead** (https://github.com/mhunter1/dynr). 
 
 psydiff is an R package which implements numerical integration of panel stochastic differential equations. The square root unscented Kalman filter procedure developed by Sarkka (2007) is implemented.
 
